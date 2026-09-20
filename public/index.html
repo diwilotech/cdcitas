@@ -28,7 +28,7 @@
 
 <div id="promoBanner" class="container pt-4" style="display:none;"></div>
 
-<div id="bookingFlow" class="container py-4 py-lg-5 content-area" style="display:none;">
+<div id="bookingFlow" class="container py-4 py-lg-5" style="display:none;">
 
   <div class="step-head"><span class="step-num">1</span><h2 class="h5 fw-bold mb-0">Elige el servicio</h2></div>
   <div id="serviceList" class="lateral-scroll"></div>
@@ -43,73 +43,74 @@
   <div class="step-head"><span class="step-num">3</span><h2 class="h5 fw-bold mb-0">Elige fecha y hora</h2></div>
   <div id="dayStrip" class="d-flex gap-2 lateral-scroll"></div>
 
-  <div class="card-panel p-3">
+  <div class="card-panel p-3" style="margin-bottom:5rem;">
     <p class="label-xs mb-2">Mañana</p>
     <div class="d-flex flex-wrap gap-2 mb-3" id="slotsMorning"></div>
     <p class="label-xs mb-2">Tarde</p>
     <div class="d-flex flex-wrap gap-2" id="slotsAfternoon"></div>
   </div>
 
-  <div class="summary-panel mt-4">
-    <h2 class="h5 fw-bold mb-3">Resumen</h2>
-
-    <div id="summaryEmpty" class="text-muted small text-center py-3">
-      Elige servicio, especialista, día y hora para ver el resumen aquí.
-    </div>
-
-    <div id="summaryFilled" style="display:none;">
-      <div class="d-flex justify-content-between align-items-start border-bottom py-2">
-        <div>
-          <div class="fw-semibold" id="sumService"></div>
-          <div class="text-muted small" id="sumDuration"></div>
-        </div>
-        <div class="fw-bold" id="sumPrice"></div>
-      </div>
-      <div class="border-bottom py-2">
-        <div class="fw-semibold" id="sumSpecialist"></div>
-        <div class="text-muted small" id="sumRole"></div>
-      </div>
-      <div class="d-flex align-items-center justify-content-between mt-3 mb-3 p-3" style="background:#eaf1fb;border-radius:12px;">
-        <div>
-          <div class="fw-semibold small" id="sumDate"></div>
-          <div class="text-muted small" id="sumTime"></div>
-        </div>
-        <i class="bi bi-calendar3" style="color:#3a6bc7;font-size:1.2rem;"></i>
-      </div>
-      <div class="d-flex justify-content-between align-items-center py-2 mb-2">
-        <span class="text-muted fw-semibold">Total</span>
-        <span class="fw-bold fs-5" id="sumTotal"></span>
-      </div>
-
-      <label class="label-xs d-block mb-1">Tu nombre</label>
-      <input type="text" id="clientName" class="form-control mb-3">
-
-      <label class="label-xs d-block mb-1">¿Cómo quieres confirmar tu cita?</label>
-      <div class="d-flex gap-2 mb-2">
-        <button type="button" class="chip flex-fill" id="channelWhatsappBtn"><i class="bi bi-whatsapp"></i> WhatsApp</button>
-        <button type="button" class="chip flex-fill" id="channelEmailBtn"><i class="bi bi-envelope"></i> Correo</button>
-      </div>
-      <div id="channelPhoneField">
-        <label class="label-xs d-block mb-1">Celular</label>
-        <input type="tel" id="clientPhone" class="form-control mb-1">
-        <p class="text-muted small mb-2" id="channelPhoneHint">Te mandamos un código por WhatsApp para confirmar la reserva.</p>
-      </div>
-      <div id="channelEmailField" style="display:none;">
-        <label class="label-xs d-block mb-1">Correo</label>
-        <input type="email" id="clientEmail" class="form-control mb-1">
-        <p class="text-muted small mb-2">Te mandamos un link por correo para confirmar la reserva.</p>
-      </div>
-
-      <button class="btn btn-brand w-100 py-2" id="confirmBtn">
-        <i class="bi bi-check2-circle"></i> Confirmar cita
-      </button>
-    </div>
-  </div>
 </div>
 
 <button class="fab-confirm" id="fabConfirm" style="display:none;" disabled>
   <i class="bi bi-check2-circle"></i> Confirmar
 </button>
+
+<div class="modal fade" id="bookingModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Resumen de tu cita</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-between align-items-start border-bottom py-2">
+          <div>
+            <div class="fw-semibold" id="sumService"></div>
+            <div class="text-muted small" id="sumDuration"></div>
+          </div>
+          <div class="fw-bold" id="sumPrice"></div>
+        </div>
+        <div class="border-bottom py-2">
+          <div class="fw-semibold" id="sumSpecialist"></div>
+          <div class="text-muted small" id="sumRole"></div>
+        </div>
+        <div class="d-flex align-items-center justify-content-between mt-3 mb-3 p-3" style="background:#eaf1fb;border-radius:12px;">
+          <div>
+            <div class="fw-semibold small" id="sumDate"></div>
+            <div class="text-muted small" id="sumTime"></div>
+          </div>
+          <i class="bi bi-calendar3" style="color:#3a6bc7;font-size:1.2rem;"></i>
+        </div>
+        <div class="d-flex justify-content-between align-items-center py-2 mb-3">
+          <span class="text-muted fw-semibold">Total</span>
+          <span class="fw-bold fs-5" id="sumTotal"></span>
+        </div>
+
+        <label class="label-xs d-block mb-1">Tu celular</label>
+        <input type="tel" id="clientPhone" class="form-control mb-1" placeholder="Ej. 3001234567">
+        <p class="text-muted small mb-3" id="phoneHint">Con tu celular revisamos si ya estás registrado — así sabemos si hace falta pedirte más datos.</p>
+
+        <div id="returningClientNote" class="d-flex align-items-center gap-2 p-2 mb-3" style="display:none;background:#e6f4ec;border-radius:10px;">
+          <i class="bi bi-check-circle-fill" style="color:#1e6b45;"></i>
+          <p class="text-muted small mb-0">Ya estás registrado como <span id="returningClientName" class="fw-semibold"></span> — solo falta confirmar.</p>
+        </div>
+
+        <div id="newClientFields" style="display:none;">
+          <label class="label-xs d-block mb-1">Tu nombre</label>
+          <input type="text" id="clientName" class="form-control mb-3">
+          <label class="label-xs d-block mb-1">Correo (opcional)</label>
+          <input type="email" id="clientEmail" class="form-control mb-1">
+          <p class="text-muted small mb-3">Te mandamos un código por WhatsApp para confirmar la reserva.</p>
+        </div>
+
+        <button class="btn btn-brand w-100 py-2" id="confirmBtn" disabled>
+          <i class="bi bi-check2-circle"></i> Confirmar cita
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="doneScreen" class="container py-5" style="display:none;">
   <div class="card-panel p-4 text-center mx-auto" style="max-width:460px;">
@@ -122,6 +123,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/app.js"></script>
 <script>
 const { api, tenantSlug, toast, dateToISO } = window.CDC;
@@ -136,29 +138,45 @@ const SERVICE_THEMES = [
 ];
 
 let business = null;
-const state = { serviceId: null, specialistId: null, date: null, time: null, channel: "whatsapp", clientVerified: false };
+let bookingModal = null;
+// El celular es el dato que se pide primero — con él se revisa si la persona ya está
+// registrada (foundClient) para no volver a pedirle nombre/correo ni el PIN por WhatsApp.
+const state = { serviceId: null, specialistId: null, date: null, time: null, foundClient: null };
 
-function selectChannel(channel) {
-  state.channel = channel;
-  document.getElementById("channelWhatsappBtn").classList.toggle("active", channel === "whatsapp");
-  document.getElementById("channelEmailBtn").classList.toggle("active", channel === "email");
-  document.getElementById("channelPhoneField").style.display = channel === "whatsapp" ? "block" : "none";
-  document.getElementById("channelEmailField").style.display = channel === "email" ? "block" : "none";
+function updateConfirmBtnState() {
+  const phone = document.getElementById("clientPhone").value.trim();
+  const name = document.getElementById("clientName").value.trim();
+  const ok = phone.length >= 7 && (state.foundClient || name);
+  document.getElementById("confirmBtn").disabled = !ok;
 }
 
 let phoneCheckTimer = null;
 function scheduleClientCheck() {
   clearTimeout(phoneCheckTimer);
   const phone = document.getElementById("clientPhone").value.trim();
-  const hint = document.getElementById("channelPhoneHint");
-  state.clientVerified = false;
-  if (phone.length < 7) { hint.textContent = "Te mandamos un código por WhatsApp para confirmar la reserva."; return; }
+  const hint = document.getElementById("phoneHint");
+  const note = document.getElementById("returningClientNote");
+  const newFields = document.getElementById("newClientFields");
+  state.foundClient = null;
+  note.style.display = "none";
+  newFields.style.display = "none";
+  updateConfirmBtnState();
+  if (phone.length < 7) { hint.textContent = "Con tu celular revisamos si ya estás registrado — así sabemos si hace falta pedirte más datos."; return; }
+  hint.textContent = "Revisando…";
   phoneCheckTimer = setTimeout(async () => {
-    const { verified } = await api(`/public/client-check?phone=${encodeURIComponent(phone)}`).catch(() => ({ verified: false }));
-    state.clientVerified = verified;
-    hint.textContent = verified
-      ? "✓ Ya estás registrado — tu cita queda confirmada de una, sin PIN."
-      : "Te mandamos un código por WhatsApp para confirmar la reserva.";
+    const found = await api(`/public/client-check?phone=${encodeURIComponent(phone)}`).catch(() => ({ found: false }));
+    if (document.getElementById("clientPhone").value.trim() !== phone) return; // cambió mientras esperaba
+    if (found.found) {
+      state.foundClient = found;
+      hint.textContent = "";
+      document.getElementById("returningClientName").textContent = found.name;
+      note.style.display = "flex";
+      newFields.style.display = "none";
+    } else {
+      hint.textContent = "Te mandamos un código por WhatsApp para confirmar la reserva.";
+      newFields.style.display = "block";
+    }
+    updateConfirmBtnState();
   }, 500);
 }
 
@@ -192,12 +210,11 @@ async function init() {
   document.getElementById("misCitasLink").href = `/${tenantSlug()}/mis-citas`;
   renderPromoBanner();
   document.getElementById("bookingFlow").style.display = "block";
+  bookingModal = new bootstrap.Modal(document.getElementById("bookingModal"));
   document.getElementById("confirmBtn").onclick = confirmBooking;
-  document.getElementById("fabConfirm").onclick = confirmBooking;
-  document.getElementById("channelWhatsappBtn").onclick = () => selectChannel("whatsapp");
-  document.getElementById("channelEmailBtn").onclick = () => selectChannel("email");
+  document.getElementById("fabConfirm").onclick = openBookingModal;
   document.getElementById("clientPhone").addEventListener("input", scheduleClientCheck);
-  selectChannel("whatsapp");
+  document.getElementById("clientName").addEventListener("input", updateConfirmBtnState);
 
   renderServices();
   renderDays();
@@ -315,16 +332,16 @@ function renderSlotButtons(list) {
     data-slot="${s.time}" ${s.available ? "" : "disabled"}>${s.time}</button>`).join("");
 }
 
+// El resumen ya no vive fijo en la página — solo controla si el botón flotante "Confirmar"
+// puede mostrarse; el contenido del resumen se llena al abrir el modal (openBookingModal).
 function updateSummary() {
   const complete = state.serviceId && state.specialistId && state.time;
-  document.getElementById("summaryEmpty").style.display = complete ? "none" : "block";
-  document.getElementById("summaryFilled").style.display = complete ? "block" : "none";
-  document.getElementById("confirmBtn").disabled = !complete;
   const fab = document.getElementById("fabConfirm");
   fab.style.display = complete ? "flex" : "none";
   fab.disabled = !complete;
-  if (!complete) return;
+}
 
+function openBookingModal() {
   const service = business.services.find((s) => s.id === state.serviceId);
   const specialist = business.specialists.find((s) => s.id === state.specialistId);
   const d = dayList().find((x) => x.iso === state.date);
@@ -337,6 +354,16 @@ function updateSummary() {
   document.getElementById("sumDate").textContent = `${d.label === "HOY" ? "Hoy" : d.label} ${d.num}`;
   document.getElementById("sumTime").textContent = to12h(state.time);
   document.getElementById("sumTotal").textContent = "$" + service.price;
+
+  state.foundClient = null;
+  document.getElementById("clientPhone").value = "";
+  document.getElementById("clientName").value = "";
+  document.getElementById("clientEmail").value = "";
+  document.getElementById("phoneHint").textContent = "Con tu celular revisamos si ya estás registrado — así sabemos si hace falta pedirte más datos.";
+  document.getElementById("returningClientNote").style.display = "none";
+  document.getElementById("newClientFields").style.display = "none";
+  document.getElementById("confirmBtn").disabled = true;
+  bookingModal.show();
 }
 
 function to12h(t) {
@@ -347,12 +374,12 @@ function to12h(t) {
 }
 
 async function confirmBooking() {
-  const clientName = document.getElementById("clientName").value.trim();
   const clientPhone = document.getElementById("clientPhone").value.trim();
-  const clientEmail = document.getElementById("clientEmail").value.trim();
-  if (!clientName || !state.time) { toast("Escribe tu nombre y elige un horario.", false); return; }
-  if (state.channel === "whatsapp" && !clientPhone) { toast("Escribe tu celular para mandarte el código por WhatsApp.", false); return; }
-  if (state.channel === "email" && !clientEmail) { toast("Escribe tu correo para mandarte el link de confirmación.", false); return; }
+  // Si el celular ya está registrado se usan el nombre/correo que ya tenemos guardados — no
+  // hace falta volver a pedirlos. Si es nuevo, salen del formulario que se mostró para eso.
+  const clientName = state.foundClient ? state.foundClient.name : document.getElementById("clientName").value.trim();
+  const clientEmail = state.foundClient ? (state.foundClient.email || "") : document.getElementById("clientEmail").value.trim();
+  if (!clientPhone || !clientName || !state.time) { toast("Escribe tu celular y, si es tu primera vez, tu nombre.", false); return; }
   try {
     const res = await api("/public/book", { method: "POST", body: {
       serviceId: state.serviceId,
@@ -362,8 +389,9 @@ async function confirmBooking() {
       clientName,
       clientEmail,
       clientPhone,
-      channel: state.channel,
+      channel: "whatsapp",
     }});
+    bookingModal.hide();
     document.getElementById("bookingFlow").style.display = "none";
     document.getElementById("fabConfirm").style.display = "none";
     const waLink = document.getElementById("waConfirmLink");
@@ -375,18 +403,14 @@ async function confirmBooking() {
       title.textContent = "¡Listo!";
       document.getElementById("doneMsg").textContent = "Ya estabas registrado, así que tu cita quedó CONFIRMADA de una — no hace falta que hagas nada más.";
       waLink.style.display = "none";
-    } else if (state.channel === "whatsapp" && res.messageResult && res.messageResult.ok && res.messageResult.waLink) {
+    } else if (res.messageResult && res.messageResult.ok && res.messageResult.waLink) {
       icon.className = "bi bi-hourglass-split"; icon.style.color = "var(--amber)"; title.textContent = "¡Ya casi!";
       document.getElementById("doneMsg").textContent = `Te reservamos el horario por ${res.messageResult.windowHours || 3}h. Toca el botón: se abre tu WhatsApp con el mensaje ya escrito, solo tienes que enviarlo para confirmar.`;
       waLink.href = res.messageResult.waLink;
       waLink.style.display = "inline-flex";
-    } else if (state.channel === "whatsapp") {
-      icon.className = "bi bi-hourglass-split"; icon.style.color = "var(--amber)"; title.textContent = "¡Ya casi!";
-      document.getElementById("doneMsg").textContent = "Tu cita quedó reservada, pero no pudimos armar el link de confirmación por WhatsApp. Contáctanos para confirmarla.";
-      waLink.style.display = "none";
     } else {
       icon.className = "bi bi-hourglass-split"; icon.style.color = "var(--amber)"; title.textContent = "¡Ya casi!";
-      document.getElementById("doneMsg").textContent = "Te mandamos un correo con un link — haz clic ahí para confirmar tu cita.";
+      document.getElementById("doneMsg").textContent = "Tu cita quedó reservada, pero no pudimos armar el link de confirmación por WhatsApp. Contáctanos para confirmarla.";
       waLink.style.display = "none";
     }
     document.getElementById("doneScreen").style.display = "block";

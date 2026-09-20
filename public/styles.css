@@ -59,15 +59,6 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 .day-chip.closed .dow{ color:#8a8d8a; }
 .day-chip .dclosed{ font-size:.6rem; margin-top:.15rem; }
 
-.summary-panel{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:1.3rem; box-shadow:0 12px 34px rgba(15,35,30,.1); }
-@media (min-width: 992px){
-  .content-area{ padding-right: calc(360px + 2.5rem); }
-  .summary-panel{ position:fixed; right:2rem; bottom:6.5rem; width:360px; max-height:calc(100vh - 8.5rem); overflow-y:auto; z-index:1030; }
-}
-@media (max-width: 991.98px){
-  .summary-panel{ margin-top:1.5rem; margin-bottom:5rem; }
-}
-
 .fab-confirm{ position:fixed; right:1.5rem; bottom:1.5rem; z-index:1040; background:#25D366; border:none; color:#fff; font-weight:700; padding:.85rem 1.4rem; border-radius:50px; align-items:center; gap:.55rem; box-shadow:0 10px 26px rgba(37,211,102,.4); transition:transform .12s ease, box-shadow .12s ease; }
 .fab-confirm:hover:not(:disabled){ transform:translateY(-2px); box-shadow:0 14px 30px rgba(37,211,102,.5); color:#fff; }
 .fab-confirm:disabled{ background:#b7bdb9; box-shadow:none; cursor:not-allowed; color:#eef0ee; }

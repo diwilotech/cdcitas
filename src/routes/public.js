@@ -58,13 +58,15 @@ export function registerPublic(router) {
     return json(await availableSlots(env, ctx.business, { serviceId, specialistId, date }));
   });
 
-  // Para avisar en el formulario "ya estás registrado" antes de reservar — un cliente que ya
-  // confirmó una cita antes por ese celular no necesita volver a confirmar por PIN.
+  // Al reservar se pide el celular primero: si ya existe un cliente con ese número no hace falta
+  // volver a pedirle nombre/correo (se usan los que ya tiene guardados), y si además ya está
+  // verificado (confirmó una cita antes por WhatsApp) la nueva reserva queda confirmada de una.
   router.get("/api/:slug/public/client-check", async (request, env, ctx) => {
     const phone = new URL(request.url).searchParams.get("phone");
-    if (!phone) return json({ verified: false });
-    const client = await first(env, `SELECT verified FROM clients WHERE business_id=? AND phone=?`, ctx.business.id, phone);
-    return json({ verified: !!client?.verified });
+    if (!phone) return json({ found: false });
+    const client = await first(env, `SELECT name, email, verified FROM clients WHERE business_id=? AND phone=?`, ctx.business.id, phone);
+    if (!client) return json({ found: false });
+    return json({ found: true, verified: !!client.verified, name: client.name, email: client.email });
   });
 
   router.post("/api/:slug/public/book", async (request, env, ctx) => {
