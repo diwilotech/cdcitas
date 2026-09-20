@@ -1,4 +1,4 @@
-// Panel de Clientes: lista + detalle (datos, estadísticas, historial de citas) y Tratamientos
+// Panel de Clientes: lista + detalle (datos, estadísticas, historial de citas) y Paquetes
 // (paquetes de varias sesiones — cada sesión es una cita normal, enlazada por treatment_id).
 // El selector de horario de las sesiones reusa Agenda.renderSlotGrid (misma grilla verde/gris que
 // ya usan Bloqueos/Añadir cita/Mover cita) en vez de duplicar esa lógica acá.
@@ -95,7 +95,7 @@ window.Clients = (function () {
     } catch (e) { toast(e.message, false); }
   };
 
-  /* ---------- Tratamientos (inscripciones del cliente en plantillas de Reglas) ---------- */
+  /* ---------- Paquetes (inscripciones del cliente en plantillas de Reglas) ---------- */
   async function renderTreatments() {
     clientTreatmentsCache = await api(`/staff/clients/${currentClientId}/treatments`).catch(() => []);
     const wrap = document.getElementById("clientTreatmentsList");
@@ -118,13 +118,13 @@ window.Clients = (function () {
               <span class="text-muted">${STATUS_LABELS[s.status] || s.status}</span>
             </div>`).join("")}</div>` : ""}
         </div>`;
-    }).join("") : `<p class="text-muted small mb-0">Sin tratamientos todavía.</p>`;
+    }).join("") : `<p class="text-muted small mb-0">Sin paquetes todavía.</p>`;
     wrap.querySelectorAll("[data-add-session]").forEach((el) => (el.onclick = () => openAddSession(el.dataset.addSession)));
   }
 
   document.getElementById("addTreatmentOpenBtn").onclick = () => {
     const active = treatmentTemplatesCache.filter((t) => t.active);
-    if (!active.length) return toast("Todavía no hay tratamientos creados — arma uno en Reglas → Tratamientos.", false);
+    if (!active.length) return toast("Todavía no hay paquetes creados — arma uno en Reglas → Paquetes.", false);
     document.getElementById("assignTreatmentSelect").innerHTML = selectOptions(active);
     updateAssignTreatmentHint();
     assignTreatmentModal = assignTreatmentModal || new bootstrap.Modal(document.getElementById("assignTreatmentModal"));
@@ -134,17 +134,17 @@ window.Clients = (function () {
     const id = document.getElementById("assignTreatmentSelect").value;
     const serviceIds = id ? await api(`/staff/treatments/${id}/services`).catch(() => []) : [];
     const names = serviceIds.map((sid) => servicesCache.find((s) => s.id === sid)?.name).filter(Boolean);
-    document.getElementById("assignTreatmentServicesHint").textContent = names.length ? "Incluye: " + names.join(", ") : "Este tratamiento todavía no tiene servicios elegidos.";
+    document.getElementById("assignTreatmentServicesHint").textContent = names.length ? "Incluye: " + names.join(", ") : "Este paquete todavía no tiene servicios elegidos.";
   }
   document.getElementById("assignTreatmentSelect").onchange = updateAssignTreatmentHint;
 
   document.getElementById("assignTreatmentSaveBtn").onclick = async () => {
     const treatmentId = document.getElementById("assignTreatmentSelect").value;
-    if (!treatmentId) return toast("Elige un tratamiento.", false);
+    if (!treatmentId) return toast("Elige un paquete.", false);
     try {
       await api(`/staff/clients/${currentClientId}/treatments`, { method: "POST", body: { treatmentId } });
       assignTreatmentModal.hide();
-      toast("Tratamiento asignado.");
+      toast("Paquete asignado.");
       renderTreatments();
     } catch (e) { toast(e.message, false); }
   };
@@ -179,7 +179,7 @@ window.Clients = (function () {
     const start = document.getElementById("addSessionStart").value;
     const serviceId = document.getElementById("addSessionService").value;
     const specialistId = document.getElementById("addSessionSpecialist").value;
-    if (!serviceId) return toast("Este tratamiento no tiene servicios — agrégalos en Reglas → Tratamientos.", false);
+    if (!serviceId) return toast("Este paquete no tiene servicios — agrégalos en Reglas → Paquetes.", false);
     if (!date || !start) return toast("Elige fecha y hora.", false);
     try {
       await api(`/staff/client-treatments/${currentEnrollmentId}/sessions`, { method: "POST", body: {

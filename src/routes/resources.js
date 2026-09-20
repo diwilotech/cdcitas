@@ -1,4 +1,4 @@
-import { makeResource, all, first, run } from "../lib/db.js";
+import { makeResource, all, first, run, uid } from "../lib/db.js";
 import { registerCrud } from "../lib/crud.js";
 import { json, error, readJson } from "../lib/http.js";
 
@@ -37,8 +37,9 @@ export function registerResources(router) {
     return json(rows.map((r) => r.service_id));
   });
 
-  // Servicios que componen un tratamiento (tabla puente treatment_services) — mismo patrón que
-  // specialist_services, arriba.
+  // Servicios que componen un paquete (tabla puente treatment_services) — a diferencia de
+  // specialist_services, acá SÍ puede repetirse el mismo service_id (ej. "3 cortes" = el mismo
+  // servicio tres veces), por eso cada fila tiene su propio id en vez de una llave compuesta.
   router.put("/api/:slug/staff/treatments/:id/services", async (request, env, ctx) => {
     const { serviceIds } = await readJson(request);
     await run(env,
@@ -46,7 +47,7 @@ export function registerResources(router) {
       ctx.params.id, ctx.business.id);
     let position = 0;
     for (const serviceId of serviceIds || []) {
-      await run(env, `INSERT INTO treatment_services (treatment_id, service_id, position) VALUES (?,?,?)`, ctx.params.id, serviceId, position++);
+      await run(env, `INSERT INTO treatment_services (id, treatment_id, service_id, position) VALUES (?,?,?,?)`, uid(), ctx.params.id, serviceId, position++);
     }
     return json({ ok: true });
   });

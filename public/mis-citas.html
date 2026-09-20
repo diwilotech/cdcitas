@@ -164,8 +164,8 @@ function apptCard(appt) {
   return `<div class="card-panel p-3">${apptCardInner(appt)}</div>`;
 }
 
-// Las citas que son sesiones de un tratamiento (treatment_id) se agrupan en UNA tarjeta con el
-// nombre del tratamiento y el progreso, en vez de aparecer sueltas mezcladas con las demás.
+// Las citas que son sesiones de un paquete (treatment_id) se agrupan en UNA tarjeta con el
+// nombre del paquete y el progreso, en vez de aparecer sueltas mezcladas con las demás.
 function groupedApptList() {
   const treatments = {}; // treatment_id -> { name, total, sessions: [] }
   const standalone = [];

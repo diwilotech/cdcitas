@@ -135,11 +135,15 @@ window.Rules = (function () {
     } catch (e) { toast(e.message, false); }
   };
 
-  /* ---------- Tratamientos (plantillas: nombre + qué servicios lo componen) ---------- */
+  /* ---------- Paquetes (llamados "treatment" por dentro — nombre técnico, no se muestra al
+     usuario; internamente son plantillas: nombre + qué servicios lo componen, en orden, pudiendo
+     repetir el mismo servicio varias veces — ej. "3 cortes" = Corte de cabello × 3) ---------- */
+  let currentTemplateServiceIds = []; // ordenada, puede repetir
+
   async function renderTreatmentTemplates() {
     treatmentTemplatesCache = await api("/staff/treatments").catch(() => []);
     const wrap = document.getElementById("treatmentTemplatesList");
-    if (!treatmentTemplatesCache.length) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin tratamientos todavía.</p>`; return; }
+    if (!treatmentTemplatesCache.length) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin paquetes todavía.</p>`; return; }
     const withServices = await Promise.all(treatmentTemplatesCache.map(async (t) => ({
       ...t, serviceIds: await api(`/staff/treatments/${t.id}/services`).catch(() => []),
     })));
@@ -157,44 +161,70 @@ window.Rules = (function () {
     document.querySelectorAll("[data-edit-treatment-template]").forEach((el) => (el.onclick = () => openEditTreatmentTemplate(el.dataset.editTreatmentTemplate)));
   }
 
-  function treatmentServiceCheckboxes(selected) {
-    if (!servicesCache.length) return `<p class="text-muted small mb-0">Todavía no hay servicios — créalos abajo, en "Servicios".</p>`;
-    return servicesCache.map((s) => `
-      <div class="form-check"><input class="form-check-input" type="checkbox" value="${s.id}" id="tplSvc_${s.id}" ${selected.includes(s.id) ? "checked" : ""}>
-      <label class="form-check-label small" for="tplSvc_${s.id}">${s.name}</label></div>`).join("");
+  // Lista tipo "carrito": select + botón agrega una instancia al final (puede repetirse el mismo
+  // servicio varias veces); cada fila tiene su propio botón de quitar. Reemplaza el viejo
+  // checkbox list, que por naturaleza no podía tener un mismo servicio marcado dos veces.
+  function renderTemplateServiceCart() {
+    const wrap = document.getElementById("editTreatmentTemplateServices");
+    wrap.innerHTML = currentTemplateServiceIds.length ? currentTemplateServiceIds.map((id, i) => {
+      const name = servicesCache.find((s) => s.id === id)?.name || "?";
+      return `<div class="d-flex justify-content-between align-items-center" style="background:#f9f8f3;border-radius:8px;padding:.35rem .6rem;">
+        <span class="small">${i + 1}. ${name}</span>
+        <button type="button" class="btn-close" style="font-size:.6rem;" data-remove-idx="${i}" aria-label="Quitar"></button>
+      </div>`;
+    }).join("") : `<p class="text-muted small mb-0">Todavía no agregaste ningún servicio.</p>`;
+    wrap.querySelectorAll("[data-remove-idx]").forEach((el) => (el.onclick = () => {
+      currentTemplateServiceIds.splice(parseInt(el.dataset.removeIdx, 10), 1);
+      renderTemplateServiceCart();
+    }));
+  }
+  document.getElementById("editTreatmentTemplateAddServiceBtn").onclick = () => {
+    const id = document.getElementById("editTreatmentTemplateServiceSelect").value;
+    if (!id) return;
+    currentTemplateServiceIds.push(id);
+    renderTemplateServiceCart();
+  };
+
+  function fillTemplateServiceSelect() {
+    const sel = document.getElementById("editTreatmentTemplateServiceSelect");
+    sel.innerHTML = servicesCache.length
+      ? servicesCache.map((s) => `<option value="${s.id}">${s.name}</option>`).join("")
+      : `<option value="">Sin servicios creados</option>`;
   }
 
   async function openEditTreatmentTemplate(id) {
     const t = treatmentTemplatesCache.find((t) => t.id === id);
     if (!t) return;
     editingTreatmentTemplateId = id;
-    document.getElementById("editTreatmentTemplateModalTitle").textContent = "Editar tratamiento";
+    document.getElementById("editTreatmentTemplateModalTitle").textContent = "Editar paquete";
     document.getElementById("editTreatmentTemplateDeleteBtn").style.display = "inline-block";
     document.getElementById("editTreatmentTemplateName").value = t.name;
     document.getElementById("editTreatmentTemplateDescription").value = t.description || "";
     document.getElementById("editTreatmentTemplateActive").checked = !!t.active;
-    const selected = await api(`/staff/treatments/${id}/services`).catch(() => []);
-    document.getElementById("editTreatmentTemplateServices").innerHTML = treatmentServiceCheckboxes(selected);
+    fillTemplateServiceSelect();
+    currentTemplateServiceIds = await api(`/staff/treatments/${id}/services`).catch(() => []);
+    renderTemplateServiceCart();
     editTreatmentTemplateModal = editTreatmentTemplateModal || new bootstrap.Modal(document.getElementById("editTreatmentTemplateModal"));
     editTreatmentTemplateModal.show();
   }
 
   document.getElementById("addTreatmentTemplateOpenBtn").onclick = () => {
     editingTreatmentTemplateId = null;
-    document.getElementById("editTreatmentTemplateModalTitle").textContent = "Añadir tratamiento";
+    document.getElementById("editTreatmentTemplateModalTitle").textContent = "Añadir paquete";
     document.getElementById("editTreatmentTemplateDeleteBtn").style.display = "none";
     document.getElementById("editTreatmentTemplateName").value = "";
     document.getElementById("editTreatmentTemplateDescription").value = "";
     document.getElementById("editTreatmentTemplateActive").checked = true;
-    document.getElementById("editTreatmentTemplateServices").innerHTML = treatmentServiceCheckboxes([]);
+    fillTemplateServiceSelect();
+    currentTemplateServiceIds = [];
+    renderTemplateServiceCart();
     editTreatmentTemplateModal = editTreatmentTemplateModal || new bootstrap.Modal(document.getElementById("editTreatmentTemplateModal"));
     editTreatmentTemplateModal.show();
   };
 
   document.getElementById("editTreatmentTemplateSaveBtn").onclick = async () => {
     const name = document.getElementById("editTreatmentTemplateName").value.trim();
-    if (!name) return toast("Ponle un nombre al tratamiento.", false);
-    const serviceIds = Array.from(document.querySelectorAll("#editTreatmentTemplateServices input:checked")).map((el) => el.value);
+    if (!name) return toast("Ponle un nombre al paquete.", false);
     const data = {
       name, description: document.getElementById("editTreatmentTemplateDescription").value.trim() || null,
       active: document.getElementById("editTreatmentTemplateActive").checked,
@@ -203,17 +233,17 @@ window.Rules = (function () {
       let id = editingTreatmentTemplateId;
       if (id === null) id = (await api("/staff/treatments", { method: "POST", body: data })).id;
       else await api(`/staff/treatments/${id}`, { method: "PATCH", body: data });
-      await api(`/staff/treatments/${id}/services`, { method: "PUT", body: { serviceIds } });
+      await api(`/staff/treatments/${id}/services`, { method: "PUT", body: { serviceIds: currentTemplateServiceIds } });
       editTreatmentTemplateModal.hide();
-      toast("Tratamiento guardado.");
+      toast("Paquete guardado.");
       renderTreatmentTemplates();
     } catch (e) { toast(e.message, false); }
   };
   document.getElementById("editTreatmentTemplateDeleteBtn").onclick = async () => {
-    if (!confirm("¿Eliminar este tratamiento? No se puede deshacer.")) return;
+    if (!confirm("¿Eliminar este paquete? No se puede deshacer.")) return;
     await api(`/staff/treatments/${editingTreatmentTemplateId}`, { method: "DELETE" });
     editTreatmentTemplateModal.hide();
-    toast("Tratamiento eliminado.");
+    toast("Paquete eliminado.");
     renderTreatmentTemplates();
   };
 
