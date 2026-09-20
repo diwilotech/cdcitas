@@ -140,13 +140,13 @@ function reschedulePanel(appt) {
     </div>`;
 }
 
-function apptCard(appt) {
+function apptCardInner(appt) {
   const actionable = canAct(appt);
   return `
-    <div class="card-panel p-3" data-id="${appt.id}">
+    <div data-id="${appt.id}">
       <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
         <div>
-          <div class="fw-bold">${appt.service_name}</div>
+          <div class="fw-bold">${appt.session_label || appt.service_name}</div>
           <div class="text-muted small">${formatDateHuman(appt.date)} · ${formatAmPm(appt.start)} con ${appt.specialist_name}</div>
         </div>
         <span class="badge rounded-pill" style="background:${STATUS_COLORS[appt.status]}22;color:${STATUS_COLORS[appt.status]};">${STATUS_LABELS[appt.status] || appt.status}</span>
@@ -158,6 +158,37 @@ function apptCard(appt) {
         </div>` : ""}
       ${reschedulePanel(appt)}
     </div>`;
+}
+
+function apptCard(appt) {
+  return `<div class="card-panel p-3">${apptCardInner(appt)}</div>`;
+}
+
+// Las citas que son sesiones de un tratamiento (treatment_id) se agrupan en UNA tarjeta con el
+// nombre del tratamiento y el progreso, en vez de aparecer sueltas mezcladas con las demás.
+function groupedApptList() {
+  const treatments = {}; // treatment_id -> { name, total, sessions: [] }
+  const standalone = [];
+  apptsCache.forEach((a) => {
+    if (!a.treatment_id) { standalone.push(a); return; }
+    (treatments[a.treatment_id] ||= { name: a.treatment_name, total: a.treatment_total_sessions, sessions: [] }).sessions.push(a);
+  });
+  const treatmentCards = Object.entries(treatments).map(([id, t]) => {
+    const done = t.sessions.filter((s) => s.status === "completed").length;
+    const progress = t.total ? `${done} de ${t.total} sesiones` : `${t.sessions.length} sesión(es)`;
+    const sorted = [...t.sessions].sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+    return `
+      <div class="card-panel p-3">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-clipboard2-pulse" style="color:var(--primary);"></i>
+          <div><div class="fw-bold">${t.name}</div><div class="text-muted small">${progress}</div></div>
+        </div>
+        <div class="d-flex flex-column gap-2">
+          ${sorted.map((s) => `<div class="border-top pt-2">${apptCardInner(s)}</div>`).join("")}
+        </div>
+      </div>`;
+  });
+  return treatmentCards.concat(standalone.map(apptCard)).join("");
 }
 
 async function loadRsSlots(appt) {
@@ -211,7 +242,7 @@ function wireReschedulePanel(appt) {
 function render() {
   const wrap = document.getElementById("apptList");
   if (!apptsCache.length) { wrap.innerHTML = `<p class="text-muted">Todavía no tienes citas.</p>`; return; }
-  wrap.innerHTML = apptsCache.map(apptCard).join("");
+  wrap.innerHTML = groupedApptList();
   wrap.querySelectorAll("[data-action]").forEach((btn) => {
     const id = btn.closest("[data-id]").dataset.id;
     const action = btn.dataset.action;

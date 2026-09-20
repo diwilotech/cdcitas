@@ -15,6 +15,7 @@ import { registerSchedule } from "./routes/schedule.js";
 import { registerFlujo } from "./routes/flujo.js";
 import { registerManage } from "./routes/manage.js";
 import { registerFiles } from "./routes/files.js";
+import { registerTreatments } from "./routes/treatments.js";
 import { sendDueReminders } from "./lib/reminders.js";
 import { releaseExpiredPending } from "./lib/confirm.js";
 
@@ -31,6 +32,7 @@ registerSchedule(router);
 registerFlujo(router);
 registerFiles(router);
 registerManage(router);
+registerTreatments(router);
 
 // Sirve un archivo estático concreto a través del binding de assets (para las rutas bonitas
 // /:slug, /:slug/admin y /admin, que no existen como archivo real).

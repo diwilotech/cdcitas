@@ -135,13 +135,16 @@ window.Agenda = (function () {
       : a.status === "completed" ? "background:#f0eee6;color:var(--muted);"
       : a.status === "reagendar" || a.status === "pending_confirmation" ? "background:#fff3d6;color:#8a6d1f;" : "background:#f4e6e3;color:var(--danger);";
     const label = spaceLabel(a.space_id);
+    // Si es una sesión de tratamiento, se muestra su etiqueta ("Sesión 2: Aplicación") en vez del
+    // nombre genérico del servicio — así se distinguen entre sí en la Agenda.
+    const title = a.session_label || a.service_name;
     // En citas cortas (ej. 15-20 min) no cabe toda la ficha sin que el texto se corte — se
     // muestra una versión de una sola línea con lo esencial (hora + servicio + cliente).
     if (compact) {
       return `
         <div class="appt-card compact ${cls}" data-appt="${a.id}">
           <span class="appt-time">${formatAMPM(a.start)}</span>
-          <span class="appt-title">${a.service_name}</span>
+          <span class="appt-title">${title}</span>
           <span class="appt-meta"><i class="bi bi-person"></i> ${a.client_name}</span>
         </div>`;
     }
@@ -151,7 +154,7 @@ window.Agenda = (function () {
     return `
       <div class="appt-card ${cls}" data-appt="${a.id}">
         <div class="appt-time">${formatAMPM(a.start)} - ${formatAMPM(a.end)}</div>
-        <div class="appt-title">${a.service_name}</div>
+        <div class="appt-title">${title}</div>
         <div class="appt-meta">
           <span><i class="bi bi-person"></i> ${a.client_name}</span>
           <span><span class="mini-avatar" style="background:${a.specialist_color}"></span> ${a.specialist_name}</span>
@@ -638,5 +641,5 @@ window.Agenda = (function () {
     return { open };
   })();
 
-  return { render, buildDaySchedule, renderTimeline, businessCache: () => businessCache, exceptionsCache: () => exceptionsCache };
+  return { render, buildDaySchedule, renderTimeline, renderSlotGrid, businessCache: () => businessCache, exceptionsCache: () => exceptionsCache };
 })();

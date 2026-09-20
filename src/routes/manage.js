@@ -62,8 +62,10 @@ export function registerManage(router) {
     const client = await first(env, `SELECT * FROM clients WHERE business_id=? AND manage_token=?`, ctx.business.id, ctx.params.token);
     if (!client) return notFound();
     const appointments = await all(env,
-      `SELECT a.*, sp.name AS specialist_name, sv.name AS service_name, sv.cancel_window_hours
+      `SELECT a.*, sp.name AS specialist_name, sv.name AS service_name, sv.cancel_window_hours,
+              t.name AS treatment_name, t.total_sessions AS treatment_total_sessions
        FROM appointments a JOIN specialists sp ON sp.id=a.specialist_id JOIN services sv ON sv.id=a.service_id
+       LEFT JOIN treatments t ON t.id=a.treatment_id
        WHERE a.client_id=? ORDER BY a.date DESC, a.start DESC`, client.id);
     return json({ client: { name: client.name, email: client.email }, business: { name: ctx.business.name }, appointments });
   });

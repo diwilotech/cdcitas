@@ -9,6 +9,36 @@ const toHHMM = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:$
 async function getAppt(env, businessId, id) {
   return first(env, `SELECT * FROM appointments WHERE business_id=? AND id=?`, businessId, id);
 }
+
+// Crea una cita "manual" de staff (walk-in o sesión de tratamiento) — resuelve/crea el cliente en
+// clients por celular, igual que ya hace la reserva pública (public.js), para que el historial de
+// un cliente quede completo sin importar si reservó él mismo o lo registró el staff. Reusada por
+// POST /staff/appointments y por POST /staff/treatments/:id/sessions (treatments.js).
+export async function createStaffAppointment(env, business, b) {
+  const service = await first(env, `SELECT * FROM services WHERE business_id=? AND id=?`, business.id, b.serviceId);
+  if (!service) return { error: "Servicio no encontrado." };
+
+  let client = b.clientPhone
+    ? await first(env, `SELECT * FROM clients WHERE business_id=? AND phone=?`, business.id, b.clientPhone)
+    : null;
+  if (!client) {
+    const clientId = uid();
+    await run(env, `INSERT INTO clients (id, business_id, name, email, phone) VALUES (?,?,?,?,?)`,
+      clientId, business.id, b.clientName, b.clientEmail || null, b.clientPhone || null);
+    client = { id: clientId };
+  }
+
+  const end = toHHMM(toMin(b.start) + service.duration_min);
+  const reminder = reminderDateTime(b.date, b.start, service.reminder_hours);
+  const id = uid();
+  await run(env,
+    `INSERT INTO appointments (id, business_id, client_id, client_name, client_email, client_phone, specialist_id,
+      service_id, date, start, end, status, walk_in, confirmation_date, confirmation_time, treatment_id, session_label)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    id, business.id, client.id, b.clientName, b.clientEmail || null, b.clientPhone || null, b.specialistId,
+    b.serviceId, b.date, b.start, end, "confirmed", 1, reminder.date, reminder.time, b.treatmentId || null, b.sessionLabel || null);
+  return { id, clientId: client.id };
+}
 // Ejecuta un cambio de estado + (opcionalmente) el aviso por WhatsApp correspondiente.
 // Una sola función para cancelar/reagendar/reabrir, ya que las tres son "cambia estado y avisa".
 async function applyStatusChange(env, ctx, appt, { status, clearSpace, templateKey, sendMessage, extra }) {
@@ -28,6 +58,7 @@ export function registerAppointments(router) {
     const date = url.searchParams.get("date");
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
+    const clientId = url.searchParams.get("clientId");
     let sql = `SELECT a.*, sp.name AS specialist_name, sp.color AS specialist_color, sp.avatar AS specialist_avatar, sv.name AS service_name
                FROM appointments a
                JOIN specialists sp ON sp.id = a.specialist_id
@@ -36,6 +67,7 @@ export function registerAppointments(router) {
     const params = [ctx.business.id];
     if (date) { sql += ` AND a.date = ?`; params.push(date); }
     else if (from && to) { sql += ` AND a.date BETWEEN ? AND ?`; params.push(from, to); }
+    if (clientId) { sql += ` AND a.client_id = ?`; params.push(clientId); }
     sql += ` ORDER BY a.date, a.start`;
     return json(await all(env, sql, ...params));
   });
@@ -43,18 +75,9 @@ export function registerAppointments(router) {
   router.post("/api/:slug/staff/appointments", async (request, env, ctx) => {
     const b = await readJson(request);
     if (!b.clientName || !b.serviceId || !b.specialistId || !b.date || !b.start) return error("Faltan datos de la cita.");
-    const service = await first(env, `SELECT * FROM services WHERE business_id=? AND id=?`, ctx.business.id, b.serviceId);
-    if (!service) return error("Servicio no encontrado.", 404);
-    const end = toHHMM(toMin(b.start) + service.duration_min);
-    const reminder = reminderDateTime(b.date, b.start, service.reminder_hours);
-    const id = uid();
-    await run(env,
-      `INSERT INTO appointments (id, business_id, client_name, client_email, client_phone, specialist_id,
-        service_id, date, start, end, status, walk_in, confirmation_date, confirmation_time)
-       VALUES (?,?,?,?,?,?,?,?,?,?,'confirmed',1,?,?)`,
-      id, ctx.business.id, b.clientName, b.clientEmail || null, b.clientPhone || null, b.specialistId,
-      b.serviceId, b.date, b.start, end, reminder.date, reminder.time);
-    return json(await getAppt(env, ctx.business.id, id), { status: 201 });
+    const result = await createStaffAppointment(env, ctx.business, b);
+    if (result.error) return error(result.error, 404);
+    return json(await getAppt(env, ctx.business.id, result.id), { status: 201 });
   });
 
   router.patch("/api/:slug/staff/appointments/:id", async (request, env, ctx) => {

@@ -168,6 +168,14 @@
       </div>
     </section>
 
+    <!-- ============ CLIENTES ============ -->
+    <section id="view-clientes" class="view" style="display:none;">
+      <div class="tab-sticky-header">
+        <input type="search" id="clientSearch" class="form-control mb-3" placeholder="Buscar por nombre o celular...">
+      </div>
+      <div id="clientsList" class="d-flex flex-column gap-2"></div>
+    </section>
+
     <!-- ============ FLUJO ============ -->
     <section id="view-flujo" class="view" style="display:none;">
       <div class="row g-3 mb-4">
@@ -315,6 +323,7 @@
         <button class="nav-btn flex-fill" data-view="calendario"><i class="bi bi-calendar3"></i>Calendario</button>
         <button class="nav-btn flex-fill" data-view="espacio"><i class="bi bi-diagram-3"></i>Espacio</button>
         <button class="nav-btn flex-fill" data-view="reglas"><i class="bi bi-sliders"></i>Reglas</button>
+        <button class="nav-btn flex-fill" data-view="clientes"><i class="bi bi-person-lines-fill"></i>Clientes</button>
         <button class="nav-btn flex-fill" data-view="flujo"><i class="bi bi-graph-up-arrow"></i>Flujo</button>
         <button class="nav-btn flex-fill" data-view="ajustes"><i class="bi bi-gear"></i>Ajustes</button>
       </div>
@@ -541,6 +550,102 @@
 </div>
 
 <!-- MODAL: Editar especialista -->
+<!-- MODAL: Detalle de cliente -->
+<div class="modal fade" id="clientDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0" id="clientDetailName">Cliente</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3 mb-3">
+          <div class="col-sm-4"><label class="label-xs d-block mb-1">Nombre</label><input type="text" id="clientDetailNameInput" class="form-control"></div>
+          <div class="col-sm-4"><label class="label-xs d-block mb-1">Celular</label><input type="tel" id="clientDetailPhone" class="form-control"></div>
+          <div class="col-sm-4"><label class="label-xs d-block mb-1">Correo</label><input type="email" id="clientDetailEmail" class="form-control"></div>
+        </div>
+        <button class="btn btn-brand btn-sm mb-4" id="clientDetailSaveBtn">Guardar datos</button>
+
+        <div class="row g-2 mb-4" id="clientDetailStats">
+          <div class="col-4 col-sm-3 text-center"><div class="metric-value" id="clientStatAttended">—</div><div class="label-xs">Asistió</div></div>
+          <div class="col-4 col-sm-3 text-center"><div class="metric-value" id="clientStatNoShow">—</div><div class="label-xs">Inasistencia</div></div>
+          <div class="col-4 col-sm-3 text-center"><div class="metric-value" id="clientStatCancelled">—</div><div class="label-xs">Canceló</div></div>
+          <div class="col-4 col-sm-3 text-center"><div class="metric-value" id="clientStatLast" style="font-size:1.1rem;">—</div><div class="label-xs">Última visita</div></div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h3 class="h6 fw-bold display-font mb-0"><i class="bi bi-clipboard2-pulse"></i> Tratamientos</h3>
+          <button class="btn btn-sm btn-brand" id="addTreatmentOpenBtn"><i class="bi bi-plus-lg"></i> Nuevo tratamiento</button>
+        </div>
+        <div id="clientTreatmentsList" class="mb-4"></div>
+
+        <h3 class="h6 fw-bold display-font mb-2"><i class="bi bi-calendar3"></i> Historial de citas</h3>
+        <div id="clientHistoryList" style="max-height:260px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Nuevo tratamiento -->
+<div class="modal fade" id="newTreatmentModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0">Nuevo tratamiento</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="label-xs d-block mb-1">Nombre del tratamiento</label>
+        <input type="text" id="newTreatmentName" class="form-control mb-3" placeholder="Depilación láser">
+        <div class="row g-3 mb-3">
+          <div class="col-sm-8"><label class="label-xs d-block mb-1">Notas (opcional)</label><input type="text" id="newTreatmentNotes" class="form-control"></div>
+          <div class="col-sm-4"><label class="label-xs d-block mb-1">Total de sesiones (opcional)</label><input type="number" min="1" id="newTreatmentTotal" class="form-control"></div>
+        </div>
+        <hr>
+        <p class="fw-semibold small mb-2">Primera sesión</p>
+        <label class="label-xs d-block mb-1">Nombre de la sesión (opcional)</label>
+        <input type="text" id="newTreatmentSessionLabel" class="form-control mb-3" placeholder="Sesión 1: Diagnóstico">
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Servicio</label><select id="newTreatmentService" class="form-select"></select></div>
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Especialista</label><select id="newTreatmentSpecialist" class="form-select"></select></div>
+        </div>
+        <label class="label-xs d-block mb-1">Fecha</label>
+        <input type="date" id="newTreatmentDate" class="form-control mb-2">
+        <input type="hidden" id="newTreatmentStart">
+        <label class="label-xs d-block mb-1">Hora</label>
+        <div class="d-flex flex-wrap gap-2 mb-3" id="newTreatmentSlotGrid" style="max-height:150px;overflow-y:auto;"></div>
+        <button class="btn btn-brand w-100" id="newTreatmentSaveBtn">Crear tratamiento</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Agregar sesión -->
+<div class="modal fade" id="addSessionModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0">Agregar sesión</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="label-xs d-block mb-1">Nombre de la sesión (opcional)</label>
+        <input type="text" id="addSessionLabel" class="form-control mb-3" placeholder="Sesión 2: Aplicación">
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Servicio</label><select id="addSessionService" class="form-select"></select></div>
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Especialista</label><select id="addSessionSpecialist" class="form-select"></select></div>
+        </div>
+        <label class="label-xs d-block mb-1">Fecha</label>
+        <input type="date" id="addSessionDate" class="form-control mb-2">
+        <input type="hidden" id="addSessionStart">
+        <label class="label-xs d-block mb-1">Hora</label>
+        <div class="d-flex flex-wrap gap-2 mb-3" id="addSessionSlotGrid" style="max-height:150px;overflow-y:auto;"></div>
+        <button class="btn btn-brand w-100" id="addSessionSaveBtn">Agregar sesión</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="editSpecialistModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius:16px; border:none;">
@@ -701,6 +806,7 @@
 <script src="/admin-calendar.js"></script>
 <script src="/admin-floorplan.js"></script>
 <script src="/admin-rules.js"></script>
+<script src="/admin-clients.js"></script>
 <script src="/admin-flujo.js"></script>
 <script src="/admin.js"></script>
 </body>
