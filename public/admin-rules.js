@@ -6,9 +6,9 @@ window.Rules = (function () {
   const { api, toast, tenantSlug } = window.CDC;
   const DOW_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
-  let servicesCache = [], specialistsCache = [], spaceTypesCache = [], promotionsCache = [];
-  let editServiceModal = null, editSpecialistModal = null, editPromoModal = null;
-  let editingServiceId = null, editingSpecialistId = null, editingPromoId = null;
+  let servicesCache = [], specialistsCache = [], spaceTypesCache = [], promotionsCache = [], treatmentTemplatesCache = [];
+  let editServiceModal = null, editSpecialistModal = null, editPromoModal = null, editTreatmentTemplateModal = null;
+  let editingServiceId = null, editingSpecialistId = null, editingPromoId = null, editingTreatmentTemplateId = null;
   let pendingServicePhotoBlob = null;
 
   function typeLabel(key) { return spaceTypesCache.find((t) => t.key === key)?.label || key; }
@@ -17,6 +17,7 @@ window.Rules = (function () {
     await renderSpaceTypes();
     await renderPromotions();
     await renderServices();
+    await renderTreatmentTemplates();
     await renderSpecialists();
   }
 
@@ -132,6 +133,88 @@ window.Rules = (function () {
       input.value = "";
       renderSpaceTypes();
     } catch (e) { toast(e.message, false); }
+  };
+
+  /* ---------- Tratamientos (plantillas: nombre + qué servicios lo componen) ---------- */
+  async function renderTreatmentTemplates() {
+    treatmentTemplatesCache = await api("/staff/treatments").catch(() => []);
+    const wrap = document.getElementById("treatmentTemplatesList");
+    if (!treatmentTemplatesCache.length) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin tratamientos todavía.</p>`; return; }
+    const withServices = await Promise.all(treatmentTemplatesCache.map(async (t) => ({
+      ...t, serviceIds: await api(`/staff/treatments/${t.id}/services`).catch(() => []),
+    })));
+    wrap.innerHTML = withServices.map((t) => {
+      const names = t.serviceIds.map((id) => servicesCache.find((s) => s.id === id)?.name).filter(Boolean);
+      return `
+        <div class="d-flex justify-content-between align-items-start border-top py-2">
+          <div>
+            <div class="fw-semibold">${t.name} ${t.active ? "" : `<span class="badge rounded-pill" style="background:#f0eee6;color:var(--muted);font-size:.68rem;">Inactivo</span>`}</div>
+            <div class="text-muted small mt-1">${names.length ? names.join(" → ") : "Sin servicios elegidos todavía"}</div>
+          </div>
+          <button class="btn btn-sm btn-outline-dark flex-shrink-0" data-edit-treatment-template="${t.id}"><i class="bi bi-pencil"></i></button>
+        </div>`;
+    }).join("");
+    document.querySelectorAll("[data-edit-treatment-template]").forEach((el) => (el.onclick = () => openEditTreatmentTemplate(el.dataset.editTreatmentTemplate)));
+  }
+
+  function treatmentServiceCheckboxes(selected) {
+    if (!servicesCache.length) return `<p class="text-muted small mb-0">Todavía no hay servicios — créalos abajo, en "Servicios".</p>`;
+    return servicesCache.map((s) => `
+      <div class="form-check"><input class="form-check-input" type="checkbox" value="${s.id}" id="tplSvc_${s.id}" ${selected.includes(s.id) ? "checked" : ""}>
+      <label class="form-check-label small" for="tplSvc_${s.id}">${s.name}</label></div>`).join("");
+  }
+
+  async function openEditTreatmentTemplate(id) {
+    const t = treatmentTemplatesCache.find((t) => t.id === id);
+    if (!t) return;
+    editingTreatmentTemplateId = id;
+    document.getElementById("editTreatmentTemplateModalTitle").textContent = "Editar tratamiento";
+    document.getElementById("editTreatmentTemplateDeleteBtn").style.display = "inline-block";
+    document.getElementById("editTreatmentTemplateName").value = t.name;
+    document.getElementById("editTreatmentTemplateDescription").value = t.description || "";
+    document.getElementById("editTreatmentTemplateActive").checked = !!t.active;
+    const selected = await api(`/staff/treatments/${id}/services`).catch(() => []);
+    document.getElementById("editTreatmentTemplateServices").innerHTML = treatmentServiceCheckboxes(selected);
+    editTreatmentTemplateModal = editTreatmentTemplateModal || new bootstrap.Modal(document.getElementById("editTreatmentTemplateModal"));
+    editTreatmentTemplateModal.show();
+  }
+
+  document.getElementById("addTreatmentTemplateOpenBtn").onclick = () => {
+    editingTreatmentTemplateId = null;
+    document.getElementById("editTreatmentTemplateModalTitle").textContent = "Añadir tratamiento";
+    document.getElementById("editTreatmentTemplateDeleteBtn").style.display = "none";
+    document.getElementById("editTreatmentTemplateName").value = "";
+    document.getElementById("editTreatmentTemplateDescription").value = "";
+    document.getElementById("editTreatmentTemplateActive").checked = true;
+    document.getElementById("editTreatmentTemplateServices").innerHTML = treatmentServiceCheckboxes([]);
+    editTreatmentTemplateModal = editTreatmentTemplateModal || new bootstrap.Modal(document.getElementById("editTreatmentTemplateModal"));
+    editTreatmentTemplateModal.show();
+  };
+
+  document.getElementById("editTreatmentTemplateSaveBtn").onclick = async () => {
+    const name = document.getElementById("editTreatmentTemplateName").value.trim();
+    if (!name) return toast("Ponle un nombre al tratamiento.", false);
+    const serviceIds = Array.from(document.querySelectorAll("#editTreatmentTemplateServices input:checked")).map((el) => el.value);
+    const data = {
+      name, description: document.getElementById("editTreatmentTemplateDescription").value.trim() || null,
+      active: document.getElementById("editTreatmentTemplateActive").checked,
+    };
+    try {
+      let id = editingTreatmentTemplateId;
+      if (id === null) id = (await api("/staff/treatments", { method: "POST", body: data })).id;
+      else await api(`/staff/treatments/${id}`, { method: "PATCH", body: data });
+      await api(`/staff/treatments/${id}/services`, { method: "PUT", body: { serviceIds } });
+      editTreatmentTemplateModal.hide();
+      toast("Tratamiento guardado.");
+      renderTreatmentTemplates();
+    } catch (e) { toast(e.message, false); }
+  };
+  document.getElementById("editTreatmentTemplateDeleteBtn").onclick = async () => {
+    if (!confirm("¿Eliminar este tratamiento? No se puede deshacer.")) return;
+    await api(`/staff/treatments/${editingTreatmentTemplateId}`, { method: "DELETE" });
+    editTreatmentTemplateModal.hide();
+    toast("Tratamiento eliminado.");
+    renderTreatmentTemplates();
   };
 
   /* ---------- Servicios ---------- */

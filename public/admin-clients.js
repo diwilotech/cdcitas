@@ -10,15 +10,18 @@ window.Clients = (function () {
   let clientsCache = [];
   let servicesCache = [];
   let specialistsCache = [];
+  let treatmentTemplatesCache = [];
+  let clientTreatmentsCache = [];
   let currentClientId = null;
-  let currentTreatmentId = null;
-  let clientDetailModal = null, newTreatmentModal = null, addSessionModal = null;
+  let currentEnrollmentId = null;
+  let clientDetailModal = null, assignTreatmentModal = null, addSessionModal = null;
 
   async function render() {
-    [clientsCache, servicesCache, specialistsCache] = await Promise.all([
+    [clientsCache, servicesCache, specialistsCache, treatmentTemplatesCache] = await Promise.all([
       api("/staff/clients").catch(() => []),
       api("/staff/services").catch(() => []),
       api("/staff/specialists").catch(() => []),
+      api("/staff/treatments").catch(() => []),
     ]);
     renderClientsList();
   }
@@ -92,19 +95,20 @@ window.Clients = (function () {
     } catch (e) { toast(e.message, false); }
   };
 
-  /* ---------- Tratamientos ---------- */
+  /* ---------- Tratamientos (inscripciones del cliente en plantillas de Reglas) ---------- */
   async function renderTreatments() {
-    const treatments = await api(`/staff/clients/${currentClientId}/treatments`).catch(() => []);
+    clientTreatmentsCache = await api(`/staff/clients/${currentClientId}/treatments`).catch(() => []);
     const wrap = document.getElementById("clientTreatmentsList");
-    wrap.innerHTML = treatments.length ? treatments.map((t) => {
+    wrap.innerHTML = clientTreatmentsCache.length ? clientTreatmentsCache.map((t) => {
       const done = t.sessions.filter((s) => s.status === "completed").length;
-      const progress = t.total_sessions ? `${done} de ${t.total_sessions} sesiones` : `${t.sessions.length} sesión(es)`;
+      const total = t.services.length;
+      const progress = total ? `${done} de ${total} sesiones` : `${t.sessions.length} sesión(es)`;
       return `
         <div class="card-panel p-3 mb-2">
           <div class="d-flex justify-content-between align-items-start">
             <div>
-              <div class="fw-semibold">${t.name}</div>
-              <div class="text-muted small">${progress}${t.notes ? " · " + t.notes : ""}</div>
+              <div class="fw-semibold">${t.treatment_name}</div>
+              <div class="text-muted small">${progress}${t.treatment_description ? " · " + t.treatment_description : ""}</div>
             </div>
             <button class="btn btn-sm btn-outline-dark flex-shrink-0" data-add-session="${t.id}">+ Sesión</button>
           </div>
@@ -119,60 +123,37 @@ window.Clients = (function () {
   }
 
   document.getElementById("addTreatmentOpenBtn").onclick = () => {
-    document.getElementById("newTreatmentName").value = "";
-    document.getElementById("newTreatmentNotes").value = "";
-    document.getElementById("newTreatmentTotal").value = "";
-    document.getElementById("newTreatmentSessionLabel").value = "Sesión 1";
-    document.getElementById("newTreatmentService").innerHTML = selectOptions(servicesCache);
-    document.getElementById("newTreatmentSpecialist").innerHTML = selectOptions(specialistsCache);
-    document.getElementById("newTreatmentDate").value = "";
-    document.getElementById("newTreatmentStart").value = "";
-    document.getElementById("newTreatmentSlotGrid").innerHTML = `<p class="text-muted small mb-0">Elige fecha.</p>`;
-    newTreatmentModal = newTreatmentModal || new bootstrap.Modal(document.getElementById("newTreatmentModal"));
-    newTreatmentModal.show();
+    const active = treatmentTemplatesCache.filter((t) => t.active);
+    if (!active.length) return toast("Todavía no hay tratamientos creados — arma uno en Reglas → Tratamientos.", false);
+    document.getElementById("assignTreatmentSelect").innerHTML = selectOptions(active);
+    updateAssignTreatmentHint();
+    assignTreatmentModal = assignTreatmentModal || new bootstrap.Modal(document.getElementById("assignTreatmentModal"));
+    assignTreatmentModal.show();
   };
-  function renderNewTreatmentGrid() {
-    window.Agenda.renderSlotGrid(document.getElementById("newTreatmentSlotGrid"), {
-      specialistId: document.getElementById("newTreatmentSpecialist").value,
-      serviceId: document.getElementById("newTreatmentService").value,
-      date: document.getElementById("newTreatmentDate").value,
-      selected: document.getElementById("newTreatmentStart").value,
-      onPick: (time) => { document.getElementById("newTreatmentStart").value = time; },
-    });
+  async function updateAssignTreatmentHint() {
+    const id = document.getElementById("assignTreatmentSelect").value;
+    const serviceIds = id ? await api(`/staff/treatments/${id}/services`).catch(() => []) : [];
+    const names = serviceIds.map((sid) => servicesCache.find((s) => s.id === sid)?.name).filter(Boolean);
+    document.getElementById("assignTreatmentServicesHint").textContent = names.length ? "Incluye: " + names.join(", ") : "Este tratamiento todavía no tiene servicios elegidos.";
   }
-  document.getElementById("newTreatmentService").onchange = renderNewTreatmentGrid;
-  document.getElementById("newTreatmentSpecialist").onchange = renderNewTreatmentGrid;
-  document.getElementById("newTreatmentDate").onchange = renderNewTreatmentGrid;
+  document.getElementById("assignTreatmentSelect").onchange = updateAssignTreatmentHint;
 
-  document.getElementById("newTreatmentSaveBtn").onclick = async () => {
-    const name = document.getElementById("newTreatmentName").value.trim();
-    const date = document.getElementById("newTreatmentDate").value;
-    const start = document.getElementById("newTreatmentStart").value;
-    const serviceId = document.getElementById("newTreatmentService").value;
-    const specialistId = document.getElementById("newTreatmentSpecialist").value;
-    if (!name) return toast("Ponle un nombre al tratamiento.", false);
-    if (!date || !start) return toast("Elige fecha y hora de la primera sesión.", false);
-    if (!serviceId || !specialistId) return toast("Crea primero un servicio y un especialista.", false);
+  document.getElementById("assignTreatmentSaveBtn").onclick = async () => {
+    const treatmentId = document.getElementById("assignTreatmentSelect").value;
+    if (!treatmentId) return toast("Elige un tratamiento.", false);
     try {
-      const total = document.getElementById("newTreatmentTotal").value;
-      const treatment = await api("/staff/treatments", { method: "POST", body: {
-        client_id: currentClientId, name, notes: document.getElementById("newTreatmentNotes").value.trim() || null,
-        total_sessions: total ? parseInt(total, 10) : null, status: "active",
-      } });
-      await api(`/staff/treatments/${treatment.id}/sessions`, { method: "POST", body: {
-        serviceId, specialistId, date, start,
-        sessionLabel: document.getElementById("newTreatmentSessionLabel").value.trim() || null,
-      } });
-      newTreatmentModal.hide();
-      toast("Tratamiento creado.");
+      await api(`/staff/clients/${currentClientId}/treatments`, { method: "POST", body: { treatmentId } });
+      assignTreatmentModal.hide();
+      toast("Tratamiento asignado.");
       renderTreatments();
     } catch (e) { toast(e.message, false); }
   };
 
-  function openAddSession(treatmentId) {
-    currentTreatmentId = treatmentId;
+  function openAddSession(enrollmentId) {
+    currentEnrollmentId = enrollmentId;
+    const enrollment = clientTreatmentsCache.find((t) => t.id === enrollmentId);
     document.getElementById("addSessionLabel").value = "";
-    document.getElementById("addSessionService").innerHTML = selectOptions(servicesCache);
+    document.getElementById("addSessionService").innerHTML = selectOptions(enrollment ? enrollment.services : []);
     document.getElementById("addSessionSpecialist").innerHTML = selectOptions(specialistsCache);
     document.getElementById("addSessionDate").value = "";
     document.getElementById("addSessionStart").value = "";
@@ -198,9 +179,10 @@ window.Clients = (function () {
     const start = document.getElementById("addSessionStart").value;
     const serviceId = document.getElementById("addSessionService").value;
     const specialistId = document.getElementById("addSessionSpecialist").value;
+    if (!serviceId) return toast("Este tratamiento no tiene servicios — agrégalos en Reglas → Tratamientos.", false);
     if (!date || !start) return toast("Elige fecha y hora.", false);
     try {
-      await api(`/staff/treatments/${currentTreatmentId}/sessions`, { method: "POST", body: {
+      await api(`/staff/client-treatments/${currentEnrollmentId}/sessions`, { method: "POST", body: {
         serviceId, specialistId, date, start,
         sessionLabel: document.getElementById("addSessionLabel").value.trim() || null,
       } });

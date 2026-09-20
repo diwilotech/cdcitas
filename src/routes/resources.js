@@ -9,7 +9,7 @@ const clients = makeResource("clients", ["name", "email", "phone"]);
 const blocks = makeResource("blocks", ["specialist_id", "date", "start", "end", "reason"]);
 const spaceTypes = makeResource("space_types", ["key", "label"]);
 const promotions = makeResource("promotions", ["title", "description", "code", "starts_at", "ends_at", "active"]);
-const treatments = makeResource("treatments", ["client_id", "name", "notes", "total_sessions", "status"]);
+const treatments = makeResource("treatments", ["name", "description", "active"]);
 
 export function registerResources(router) {
   registerCrud(router, "services", services, "name");
@@ -34,6 +34,24 @@ export function registerResources(router) {
   });
   router.get("/api/:slug/staff/specialists/:id/services", async (request, env, ctx) => {
     const rows = await all(env, `SELECT service_id FROM specialist_services WHERE specialist_id=?`, ctx.params.id);
+    return json(rows.map((r) => r.service_id));
+  });
+
+  // Servicios que componen un tratamiento (tabla puente treatment_services) — mismo patrón que
+  // specialist_services, arriba.
+  router.put("/api/:slug/staff/treatments/:id/services", async (request, env, ctx) => {
+    const { serviceIds } = await readJson(request);
+    await run(env,
+      `DELETE FROM treatment_services WHERE treatment_id IN (SELECT id FROM treatments WHERE id=? AND business_id=?)`,
+      ctx.params.id, ctx.business.id);
+    let position = 0;
+    for (const serviceId of serviceIds || []) {
+      await run(env, `INSERT INTO treatment_services (treatment_id, service_id, position) VALUES (?,?,?)`, ctx.params.id, serviceId, position++);
+    }
+    return json({ ok: true });
+  });
+  router.get("/api/:slug/staff/treatments/:id/services", async (request, env, ctx) => {
+    const rows = await all(env, `SELECT service_id FROM treatment_services WHERE treatment_id=? ORDER BY position`, ctx.params.id);
     return json(rows.map((r) => r.service_id));
   });
 
