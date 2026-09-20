@@ -120,11 +120,15 @@ function reschedulePanel(appt) {
   const days = dayList();
   return `
     <div class="border-top mt-2 pt-2">
+      <p class="text-muted small mb-2"><span style="color:var(--amber);">●</span> Es el día/hora que ya tienes — elige otro para moverla ahí.</p>
       <div class="d-flex flex-nowrap gap-2 mb-2 overflow-x-auto pb-1" id="rsDayStrip">
         ${days.map((d) => {
           const closed = isDayClosed(d.iso);
-          return `<div class="day-chip ${reschedule.date === d.iso ? "selected" : ""} ${closed ? "closed" : ""}" data-iso="${d.iso}" style="flex-shrink:0;">
-            <div class="dow">${d.label}</div><div class="dnum">${d.num}</div>${closed ? `<div class="dclosed">Cerrado</div>` : ""}
+          const isCurrent = d.iso === appt.date;
+          return `<div class="day-chip ${reschedule.date === d.iso ? "selected" : ""} ${closed ? "closed" : ""}" data-iso="${d.iso}" style="flex-shrink:0;${isCurrent ? "border-color:var(--amber);border-width:2px;" : ""}">
+            <div class="dow">${d.label}</div><div class="dnum">${d.num}</div>
+            ${isCurrent ? `<div style="color:var(--amber);font-size:.65rem;font-weight:700;">● tu cita</div>` : ""}
+            ${closed ? `<div class="dclosed">Cerrado</div>` : ""}
           </div>`;
         }).join("")}
       </div>
@@ -167,9 +171,15 @@ async function loadRsSlots(appt) {
     .catch(() => ({ allSlots: [] }));
   // Se muestran también los horarios ocupados (en gris, deshabilitados) — no solo los libres —
   // para que se vea claro por qué algunos no se pueden elegir, en vez de que simplemente falten.
-  wrap.innerHTML = allSlots.length ? allSlots.map((s) =>
-    `<button class="btn slot-btn ${s.available ? "available" : "unavailable"}" data-slot="${s.time}" ${s.available ? "" : "disabled"}>${s.time}</button>`).join("")
-    : `<p class="text-muted small mb-0">Sin horarios ese día.</p>`;
+  // El horario que YA tiene la cita (mismo día) sale en un color aparte y sin poder elegirse —
+  // no tiene sentido "reagendarla" a la misma hora que ya tenía.
+  const isCurrentDay = reschedule.date === appt.date;
+  wrap.innerHTML = allSlots.length ? allSlots.map((s) => {
+    if (isCurrentDay && s.time === appt.start) {
+      return `<button type="button" class="btn slot-btn" style="background:#fff3d6;border-color:var(--amber);color:#5c4712;" disabled title="Tu cita actual">● ${s.time}</button>`;
+    }
+    return `<button class="btn slot-btn ${s.available ? "available" : "unavailable"}" data-slot="${s.time}" ${s.available ? "" : "disabled"}>${s.time}</button>`;
+  }).join("") : `<p class="text-muted small mb-0">Sin horarios ese día.</p>`;
   wrap.querySelectorAll(".slot-btn:not(:disabled)").forEach((b) => b.onclick = () => {
     reschedule.time = b.dataset.slot;
     wrap.querySelectorAll(".slot-btn").forEach((x) => x.classList.remove("active"));
@@ -205,7 +215,13 @@ function render() {
   wrap.querySelectorAll("[data-action]").forEach((btn) => {
     const id = btn.closest("[data-id]").dataset.id;
     const action = btn.dataset.action;
-    btn.onclick = () => action === "reschedule" ? (reschedule = { apptId: id, date: null, time: null }, render()) : act(id, action, "¿Seguro que quieres cancelar esta cita?");
+    btn.onclick = () => {
+      if (action !== "reschedule") return act(id, action, "¿Seguro que quieres cancelar esta cita?");
+      // Arranca mostrando el día donde ya está la cita, para que se vea de una junto a los demás.
+      const appt = apptsCache.find((a) => a.id === id);
+      reschedule = { apptId: id, date: appt ? appt.date : null, time: null };
+      render();
+    };
   });
   if (reschedule) wireReschedulePanel(apptsCache.find((a) => a.id === reschedule.apptId));
 }
