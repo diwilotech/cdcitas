@@ -26,6 +26,8 @@
   </div>
 </div>
 
+<div id="promoBanner" class="container pt-4" style="display:none;"></div>
+
 <div id="bookingFlow" class="container py-4 py-lg-5 content-area" style="display:none;">
 
   <div class="step-head"><span class="step-num">1</span><h2 class="h5 fw-bold mb-0">Elige el servicio</h2></div>
@@ -160,6 +162,24 @@ function scheduleClientCheck() {
   }, 500);
 }
 
+async function renderPromoBanner() {
+  const promos = await api("/public/promotions").catch(() => []);
+  const wrap = document.getElementById("promoBanner");
+  if (!promos.length) { wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  wrap.innerHTML = promos.map((p) => `
+    <div class="card-panel p-3 mb-2" style="background:#fff3d6;border-color:#e0a339;">
+      <div class="d-flex align-items-start gap-2">
+        <i class="bi bi-megaphone-fill" style="color:#8a6d1f;font-size:1.1rem;"></i>
+        <div>
+          <div class="fw-bold" style="color:#5c4712;">${p.title}</div>
+          ${p.description ? `<div class="small" style="color:#5c4712;">${p.description}</div>` : ""}
+          ${p.code ? `<div class="small fw-semibold mt-1" style="color:#5c4712;">Código: ${p.code}</div>` : ""}
+        </div>
+      </div>
+    </div>`).join("");
+}
+
 async function init() {
   if (!tenantSlug()) { document.getElementById("noTenant").style.display = "block"; return; }
   business = await api("/public/business").catch((e) => { toast(e.message, false); return null; });
@@ -170,6 +190,7 @@ async function init() {
     document.getElementById("bizMark").innerHTML = `<img src="/api/${tenantSlug()}/public/files/${business.logoKey}" style="width:100%;height:100%;object-fit:cover;">`;
   }
   document.getElementById("misCitasLink").href = `/${tenantSlug()}/mis-citas`;
+  renderPromoBanner();
   document.getElementById("bookingFlow").style.display = "block";
   document.getElementById("confirmBtn").onclick = confirmBooking;
   document.getElementById("fabConfirm").onclick = confirmBooking;

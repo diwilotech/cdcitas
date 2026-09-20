@@ -47,7 +47,20 @@
   <div id="errBanner" class="card-panel p-3 mb-3 text-center" style="display:none;background:#f4e6e3;border-color:#c0472f;color:#8a3a26;"></div>
 
   <div id="listWrap" style="display:none;">
-    <h1 class="h4 fw-bold display-font mb-3">Hola, <span id="clientName"></span></h1>
+    <div id="promoBanner" style="display:none;" class="mb-3"></div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h4 fw-bold display-font mb-0">Hola, <span id="clientName"></span></h1>
+      <button class="btn btn-sm btn-outline-dark" id="editProfileToggleBtn"><i class="bi bi-pencil"></i> Editar mis datos</button>
+    </div>
+    <div id="editProfileForm" class="card-panel p-3 mb-3" style="display:none;">
+      <label class="label-xs d-block mb-1">Nombre</label>
+      <input type="text" id="profileName" class="form-control mb-2">
+      <label class="label-xs d-block mb-1">Correo (opcional)</label>
+      <input type="email" id="profileEmail" class="form-control mb-2">
+      <button class="btn btn-brand btn-sm" id="profileSaveBtn">Guardar</button>
+    </div>
+
     <div id="apptList" class="d-flex flex-column gap-3"></div>
   </div>
 </div>
@@ -215,13 +228,56 @@ async function loadBizHeader() {
   document.getElementById("goBookLink").href = `/${tenantSlug()}`;
 }
 
+let currentClient = null;
+
+async function renderPromoBanner() {
+  const promos = await api("/public/promotions").catch(() => []);
+  const wrap = document.getElementById("promoBanner");
+  if (!promos.length) { wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  wrap.innerHTML = promos.map((p) => `
+    <div class="card-panel p-3 mb-2" style="background:#fff3d6;border-color:#e0a339;">
+      <div class="d-flex align-items-start gap-2">
+        <i class="bi bi-megaphone-fill" style="color:#8a6d1f;font-size:1.1rem;"></i>
+        <div>
+          <div class="fw-bold" style="color:#5c4712;">${p.title}</div>
+          ${p.description ? `<div class="small" style="color:#5c4712;">${p.description}</div>` : ""}
+          ${p.code ? `<div class="small fw-semibold mt-1" style="color:#5c4712;">Código: ${p.code}</div>` : ""}
+        </div>
+      </div>
+    </div>`).join("");
+}
+
+document.getElementById("editProfileToggleBtn").onclick = () => {
+  const form = document.getElementById("editProfileForm");
+  const opening = form.style.display === "none";
+  form.style.display = opening ? "block" : "none";
+  if (opening) {
+    document.getElementById("profileName").value = currentClient.name || "";
+    document.getElementById("profileEmail").value = currentClient.email || "";
+  }
+};
+document.getElementById("profileSaveBtn").onclick = async () => {
+  const name = document.getElementById("profileName").value.trim();
+  const email = document.getElementById("profileEmail").value.trim();
+  if (!name) return toast("Escribe tu nombre.", false);
+  try {
+    await api(`/public/my-appointments/${token()}/profile`, { method: "PATCH", body: { name, email } });
+    toast("Datos guardados.");
+    document.getElementById("editProfileForm").style.display = "none";
+    load();
+  } catch (e) { toast(e.message, false); }
+};
+
 async function load() {
   try {
     const data = await api(`/public/my-appointments/${token()}`);
+    currentClient = data.client;
     document.getElementById("clientName").textContent = data.client.name;
     document.getElementById("listWrap").style.display = "block";
     apptsCache = data.appointments;
     render();
+    renderPromoBanner();
   } catch (e) {
     document.getElementById("noToken").style.display = "block";
   }

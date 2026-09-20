@@ -37,6 +37,18 @@ export function registerPublic(router) {
     });
   });
 
+  // Promociones vigentes hoy (activas y dentro de su rango de fechas, si tienen) — se muestran en
+  // la reserva y en "mis citas".
+  router.get("/api/:slug/public/promotions", async (request, env, ctx) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const promos = await all(env,
+      `SELECT id, title, description, code, starts_at, ends_at FROM promotions
+       WHERE business_id=? AND active=1 AND (starts_at IS NULL OR starts_at <= ?) AND (ends_at IS NULL OR ends_at >= ?)
+       ORDER BY created_at DESC`,
+      ctx.business.id, today, today);
+    return json(promos);
+  });
+
   router.get("/api/:slug/public/availability", async (request, env, ctx) => {
     const url = new URL(request.url);
     const serviceId = url.searchParams.get("serviceId");

@@ -6,18 +6,102 @@ window.Rules = (function () {
   const { api, toast, tenantSlug } = window.CDC;
   const DOW_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
-  let servicesCache = [], specialistsCache = [], spaceTypesCache = [];
-  let editServiceModal = null, editSpecialistModal = null;
-  let editingServiceId = null, editingSpecialistId = null;
+  let servicesCache = [], specialistsCache = [], spaceTypesCache = [], promotionsCache = [];
+  let editServiceModal = null, editSpecialistModal = null, editPromoModal = null;
+  let editingServiceId = null, editingSpecialistId = null, editingPromoId = null;
   let pendingServicePhotoBlob = null;
 
   function typeLabel(key) { return spaceTypesCache.find((t) => t.key === key)?.label || key; }
 
   async function render() {
     await renderSpaceTypes();
+    await renderPromotions();
     await renderServices();
     await renderSpecialists();
   }
+
+  /* ---------- Promociones ---------- */
+  async function renderPromotions() {
+    promotionsCache = await api("/staff/promotions").catch(() => []);
+    const wrap = document.getElementById("promotionsList");
+    wrap.innerHTML = promotionsCache.length ? "" : `<p class="text-muted small mb-0">Sin promociones todavía.</p>`;
+    const today = new Date().toISOString().slice(0, 10);
+    promotionsCache.forEach((p) => {
+      const vigente = !!p.active && (!p.starts_at || p.starts_at <= today) && (!p.ends_at || p.ends_at >= today);
+      const row = document.createElement("div");
+      row.className = "d-flex justify-content-between align-items-start border-top py-2";
+      const range = [p.starts_at, p.ends_at].filter(Boolean).join(" – ");
+      row.innerHTML = `
+        <div>
+          <div class="fw-semibold">${p.title} ${vigente ? `<span class="badge rounded-pill" style="background:rgba(15,82,87,.1);color:var(--primary);font-size:.68rem;">Vigente</span>` : `<span class="badge rounded-pill" style="background:#f0eee6;color:var(--muted);font-size:.68rem;">Inactiva</span>`}</div>
+          ${p.description ? `<div class="text-muted small mt-1">${p.description}</div>` : ""}
+          <div class="text-muted small mt-1">${[p.code ? `Código: ${p.code}` : "", range].filter(Boolean).join(" · ")}</div>
+        </div>
+        <button class="btn btn-sm btn-outline-dark flex-shrink-0" data-edit-promo="${p.id}"><i class="bi bi-pencil"></i></button>`;
+      wrap.appendChild(row);
+    });
+    document.querySelectorAll("[data-edit-promo]").forEach((el) => (el.onclick = () => openEditPromo(el.dataset.editPromo)));
+  }
+
+  function readPromoForm() {
+    return {
+      title: document.getElementById("editPromoTitle").value.trim(),
+      description: document.getElementById("editPromoDescription").value.trim() || null,
+      code: document.getElementById("editPromoCode").value.trim() || null,
+      starts_at: document.getElementById("editPromoStart").value || null,
+      ends_at: document.getElementById("editPromoEnd").value || null,
+      active: document.getElementById("editPromoActive").checked,
+    };
+  }
+
+  function openEditPromo(id) {
+    const p = promotionsCache.find((p) => p.id === id);
+    if (!p) return;
+    editingPromoId = id;
+    document.getElementById("editPromoModalTitle").textContent = "Editar promoción";
+    document.getElementById("editPromoDeleteBtn").style.display = "inline-block";
+    document.getElementById("editPromoTitle").value = p.title;
+    document.getElementById("editPromoDescription").value = p.description || "";
+    document.getElementById("editPromoCode").value = p.code || "";
+    document.getElementById("editPromoStart").value = p.starts_at || "";
+    document.getElementById("editPromoEnd").value = p.ends_at || "";
+    document.getElementById("editPromoActive").checked = !!p.active;
+    editPromoModal = editPromoModal || new bootstrap.Modal(document.getElementById("editPromoModal"));
+    editPromoModal.show();
+  }
+
+  document.getElementById("addPromoOpenBtn").onclick = () => {
+    editingPromoId = null;
+    document.getElementById("editPromoModalTitle").textContent = "Añadir promoción";
+    document.getElementById("editPromoDeleteBtn").style.display = "none";
+    document.getElementById("editPromoTitle").value = "";
+    document.getElementById("editPromoDescription").value = "";
+    document.getElementById("editPromoCode").value = "";
+    document.getElementById("editPromoStart").value = "";
+    document.getElementById("editPromoEnd").value = "";
+    document.getElementById("editPromoActive").checked = true;
+    editPromoModal = editPromoModal || new bootstrap.Modal(document.getElementById("editPromoModal"));
+    editPromoModal.show();
+  };
+
+  document.getElementById("editPromoSaveBtn").onclick = async () => {
+    const data = readPromoForm();
+    if (!data.title) return toast("Ponle un título a la promoción.", false);
+    try {
+      if (editingPromoId === null) await api("/staff/promotions", { method: "POST", body: data });
+      else await api(`/staff/promotions/${editingPromoId}`, { method: "PATCH", body: data });
+      editPromoModal.hide();
+      toast("Promoción guardada.");
+      renderPromotions();
+    } catch (e) { toast(e.message, false); }
+  };
+  document.getElementById("editPromoDeleteBtn").onclick = async () => {
+    if (!confirm("¿Eliminar esta promoción? No se puede deshacer.")) return;
+    await api(`/staff/promotions/${editingPromoId}`, { method: "DELETE" });
+    editPromoModal.hide();
+    toast("Promoción eliminada.");
+    renderPromotions();
+  };
 
   /* ---------- Tipos de espacio ---------- */
   function slugify(label) {

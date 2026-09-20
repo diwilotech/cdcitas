@@ -65,7 +65,18 @@ export function registerManage(router) {
       `SELECT a.*, sp.name AS specialist_name, sv.name AS service_name, sv.cancel_window_hours
        FROM appointments a JOIN specialists sp ON sp.id=a.specialist_id JOIN services sv ON sv.id=a.service_id
        WHERE a.client_id=? ORDER BY a.date DESC, a.start DESC`, client.id);
-    return json({ client: { name: client.name }, business: { name: ctx.business.name }, appointments });
+    return json({ client: { name: client.name, email: client.email }, business: { name: ctx.business.name }, appointments });
+  });
+
+  // El cliente puede corregir su nombre/correo desde el link de mis-citas. El celular NO se puede
+  // cambiar acá — es la llave con la que entra (login-request/webhook lo usan tal cual).
+  router.patch("/api/:slug/public/my-appointments/:token/profile", async (request, env, ctx) => {
+    const client = await first(env, `SELECT * FROM clients WHERE business_id=? AND manage_token=?`, ctx.business.id, ctx.params.token);
+    if (!client) return notFound();
+    const { name, email } = await readJson(request);
+    if (!name || !String(name).trim()) return error("Escribe tu nombre.");
+    await run(env, `UPDATE clients SET name=?, email=? WHERE id=?`, String(name).trim(), email ? String(email).trim() : null, client.id);
+    return json({ ok: true, name: String(name).trim(), email: email ? String(email).trim() : null });
   });
 
   router.post("/api/:slug/public/my-appointments/:token/:apptId/cancel", async (request, env, ctx) => {

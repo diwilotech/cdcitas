@@ -135,6 +135,17 @@
         </div>
       </div>
 
+      <div class="card-panel p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h2 class="h6 fw-bold display-font mb-1"><i class="bi bi-megaphone"></i> Promociones</h2>
+            <p class="text-muted small mb-0">Se ven en la reserva y en "mis citas" mientras estén activas y dentro de su fecha.</p>
+          </div>
+          <button class="btn btn-sm btn-brand flex-shrink-0" id="addPromoOpenBtn"><i class="bi bi-plus-lg"></i> Añadir</button>
+        </div>
+        <div id="promotionsList"></div>
+      </div>
+
       <div class="row g-4">
         <div class="col-lg-6">
           <div class="card-panel p-4 h-100">
@@ -466,6 +477,38 @@
 </div>
 
 <!-- MODAL: Editar servicio -->
+<!-- MODAL: Editar/añadir promoción -->
+<div class="modal fade" id="editPromoModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0" id="editPromoModalTitle">Editar promoción</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="label-xs d-block mb-1">Título</label>
+        <input type="text" id="editPromoTitle" class="form-control mb-3" placeholder="20% en cortes los martes">
+        <label class="label-xs d-block mb-1">Descripción (opcional)</label>
+        <textarea id="editPromoDescription" class="form-control mb-3" rows="2"></textarea>
+        <label class="label-xs d-block mb-1">Código (opcional)</label>
+        <input type="text" id="editPromoCode" class="form-control mb-3" placeholder="MARTES20">
+        <div class="row g-3 mb-3">
+          <div class="col-6"><label class="label-xs d-block mb-1">Desde (opcional)</label><input type="date" id="editPromoStart" class="form-control"></div>
+          <div class="col-6"><label class="label-xs d-block mb-1">Hasta (opcional)</label><input type="date" id="editPromoEnd" class="form-control"></div>
+        </div>
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="editPromoActive" checked>
+          <label class="form-check-label" for="editPromoActive">Activa (se muestra a los clientes)</label>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-danger" id="editPromoDeleteBtn"><i class="bi bi-trash3"></i> Eliminar</button>
+          <button class="btn btn-brand flex-fill" id="editPromoSaveBtn">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="editServiceModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content" style="border-radius:16px; border:none;">
