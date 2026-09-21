@@ -57,6 +57,10 @@ export function registerSetup(router) {
         uid(), businessId, t.key, t.label);
     }
 
+    await run(env,
+      `INSERT INTO spaces (id, business_id, label, type, shape, capacity, x, y, w, h) VALUES (?,?,'General','general','square',4,0,0,3,3)`,
+      uid(), businessId);
+
     return json({ slug, ownerEmail: body.ownerEmail }, { status: 201 });
   });
 }

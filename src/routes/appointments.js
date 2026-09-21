@@ -44,7 +44,7 @@ export async function createStaffAppointment(env, business, b) {
 async function applyStatusChange(env, ctx, appt, { status, clearSpace, templateKey, sendMessage, extra }) {
   const fields = ["status = ?"];
   const vals = [status];
-  if (clearSpace) fields.push("space_type = NULL");
+  if (clearSpace) fields.push("space_id = NULL");
   await run(env, `UPDATE appointments SET ${fields.join(", ")} WHERE business_id=? AND id=?`, ...vals, ctx.business.id, appt.id);
   const updated = await getAppt(env, ctx.business.id, appt.id);
   let messageResult = null;
@@ -84,7 +84,7 @@ export function registerAppointments(router) {
     const appt = await getAppt(env, ctx.business.id, ctx.params.id);
     if (!appt) return notFound();
     const b = await readJson(request);
-    const editable = ["space_type", "confirmation_date", "confirmation_time", "paid"];
+    const editable = ["space_id", "confirmation_date", "confirmation_time", "paid"];
     const present = editable.filter((f) => f in b);
     if (present.length) {
       const setSql = present.map((f) => `${f} = ?`).join(", ");

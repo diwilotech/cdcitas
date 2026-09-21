@@ -33,7 +33,7 @@ export function registerSchedule(router) {
       ctx.business.id, ctx.params.id, date);
 
     for (const appt of affected) {
-      await run(env, `UPDATE appointments SET status='reagendar', space_type=NULL WHERE id=?`, appt.id);
+      await run(env, `UPDATE appointments SET status='reagendar', space_id=NULL WHERE id=?`, appt.id);
       if (notify) await sendApptMessage(env, ctx.business, appt, "reschedule");
     }
 

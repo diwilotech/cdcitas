@@ -1,8 +1,7 @@
-// Reglas de negocio: servicios y especialistas (con sus modales de editar/añadir). Los tipos de
-// espacio se administran en la pestaña Espacio (admin-spacetypes.js) — acá solo se cargan para
-// mostrar/elegir el tipo permitido de cada servicio. Las plantillas de mensajes viven en Ajustes
-// (admin.js), junto con el resto de WhatsApp. Las columnas allowed_space_types/work_days y la
-// tabla puente specialist_services ya existían en el backend — esto solo les pone interfaz.
+// Reglas de negocio: servicios y especialistas (con sus modales de editar/añadir) y tipos de
+// espacio. Las plantillas de mensajes viven en Ajustes (admin.js), junto con el resto de
+// WhatsApp. Las columnas allowed_space_types/work_days y la tabla puente specialist_services ya
+// existían en el backend — esto solo les pone interfaz.
 window.Rules = (function () {
   const { api, toast, tenantSlug } = window.CDC;
   const DOW_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -15,7 +14,7 @@ window.Rules = (function () {
   function typeLabel(key) { return spaceTypesCache.find((t) => t.key === key)?.label || key; }
 
   async function render() {
-    await loadSpaceTypesCache();
+    await renderSpaceTypes();
     await renderPromotions();
     await renderServices();
     await renderTreatmentTemplates();
@@ -105,11 +104,36 @@ window.Rules = (function () {
     renderPromotions();
   };
 
-  // Los tipos de espacio se administran en la pestaña Espacio (admin-spacetypes.js) — acá solo se
-  // necesita la lista para mostrar/elegir el tipo permitido de cada servicio.
-  async function loadSpaceTypesCache() {
-    spaceTypesCache = await api("/staff/space-types").catch(() => []);
+  /* ---------- Tipos de espacio ---------- */
+  function slugify(label) {
+    return label.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "tipo";
   }
+
+  async function renderSpaceTypes() {
+    spaceTypesCache = await api("/staff/space-types").catch(() => []);
+    document.getElementById("spaceTypesList").innerHTML = spaceTypesCache.length ? spaceTypesCache.map((t) => `
+      <span class="badge rounded-pill d-inline-flex align-items-center gap-2" style="background:#f0eee6;color:var(--ink);font-size:.82rem;padding:.4rem .7rem;">
+        ${t.label}
+        <button type="button" class="btn-close" style="font-size:.55rem;" data-del-type="${t.id}" aria-label="Eliminar"></button>
+      </span>`).join("") : `<p class="text-muted small mb-0">Sin tipos todavía — añade el primero abajo.</p>`;
+    document.querySelectorAll("[data-del-type]").forEach((el) => (el.onclick = async () => {
+      if (!confirm("¿Eliminar este tipo de espacio? Los espacios/servicios que ya lo usan quedan con una referencia suelta.")) return;
+      await api(`/staff/space-types/${el.dataset.delType}`, { method: "DELETE" });
+      renderSpaceTypes();
+    }));
+  }
+
+  document.getElementById("addSpaceTypeBtn").onclick = async () => {
+    const input = document.getElementById("newSpaceTypeLabel");
+    const label = input.value.trim();
+    if (!label) return toast("Escribe un nombre.", false);
+    try {
+      await api("/staff/space-types", { method: "POST", body: { key: slugify(label), label } });
+      input.value = "";
+      renderSpaceTypes();
+    } catch (e) { toast(e.message, false); }
+  };
 
   /* ---------- Paquetes (llamados "treatment" por dentro — nombre técnico, no se muestra al
      usuario; internamente son plantillas: nombre + qué servicios lo componen, en orden, pudiendo
@@ -253,7 +277,7 @@ window.Rules = (function () {
   }
 
   function serviceTypeCheckboxes(selected) {
-    if (!spaceTypesCache.length) return `<p class="text-muted small mb-0">Todavía no hay tipos de espacio — créalos en la pestaña "Espacio".</p>`;
+    if (!spaceTypesCache.length) return `<p class="text-muted small mb-0">Todavía no hay tipos de espacio — créalos arriba, en "Tipos de espacio".</p>`;
     return spaceTypesCache.map(({ key, label }) => `
       <div class="form-check"><input class="form-check-input" type="checkbox" value="${key}" id="svcType_${key}" ${selected.includes(key) ? "checked" : ""}>
       <label class="form-check-label small" for="svcType_${key}">${label}</label></div>`).join("");

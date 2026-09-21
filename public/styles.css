@@ -138,6 +138,59 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 .legend-chip{ display:inline-flex; align-items:center; gap:.35rem; font-size:.8rem; color:var(--muted); flex-shrink:0; white-space:nowrap; }
 .calendar-scroll{ overflow-y:auto; max-height:calc(100vh - 360px); }
 
+/* Espacio: plano del local arrastrable */
+.space-toolbar{ display:flex; flex-wrap:wrap; gap:.5rem; }
+.space-add-btn{ display:flex; align-items:center; gap:.4rem; padding:.5rem .9rem; border-radius:10px; border:1px solid var(--line); background:#fff; font-size:.82rem; font-weight:600; color:var(--ink); cursor:pointer; flex-shrink:0; white-space:nowrap; }
+.space-add-btn:hover{ border-color:var(--primary); color:var(--primary); }
+.space-add-btn[disabled]{ opacity:.4; cursor:not-allowed; }
+.grid-scroll{ overflow:auto; -webkit-overflow-scrolling:touch; border-radius:8px; max-height:calc(100vh - 360px); }
+.grid-container{ position:relative; background-color:#fff; border-radius:8px; border:2px dashed var(--line);
+  background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  margin:0; user-select:none; }
+.table-item{ position:absolute; display:flex; flex-direction:column; align-items:center; background:#fff; border:2px solid var(--primary); color:var(--ink);
+  box-shadow:0 2px 6px rgba(0,0,0,.08); cursor:grab; padding:1.4rem .5rem .4rem; text-align:center; gap:.2rem; overflow:hidden; border-radius:10px; }
+.table-item.locked{ cursor:pointer; }
+.table-item.dragging{ cursor:grabbing; opacity:.85; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,.2); }
+.table-item .t-label{ font-weight:700; font-size:.9rem; line-height:1.1; }
+.table-item .t-label i{ font-size:.72rem; color:var(--muted); margin-left:.2rem; }
+.table-item .t-cap{ font-size:.7rem; color:var(--muted); margin-bottom:.15rem; }
+.t-type-badge{ font-weight:700; color:var(--primary); }
+.table-item .t-status-dot{ width:10px; height:10px; border-radius:50%; position:absolute; top:8px; left:8px; border:none; }
+.table-item.status-libre{ border-color:#3a9a6d; }
+.table-item.status-libre .t-status-dot{ background:#3a9a6d; }
+.table-item.status-ocupada{ border-color:var(--danger); }
+.table-item.status-ocupada .t-status-dot{ background:var(--danger); }
+.table-item.status-reservada{ border-color:var(--amber); }
+.table-item.status-reservada .t-status-dot{ background:var(--amber); }
+.table-item .t-remove{ position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.06); border:none; color:var(--muted); font-size:.65rem; display:flex; align-items:center; justify-content:center; line-height:1; }
+.table-item .t-remove:hover{ background:var(--danger); color:#fff; }
+.table-item .t-resize{ position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 50%, var(--line) 50%); border-bottom-right-radius:8px; }
+.t-mini-schedule{ display:flex; flex-direction:column; gap:.15rem; width:100%; overflow:hidden; }
+.t-mini-appt{ font-size:.66rem; background:rgba(15,82,87,.08); border-radius:5px; padding:.1rem .35rem; display:flex; justify-content:space-between; gap:.3rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.t-mini-appt.conflict{ background:#f4e6e3; color:var(--danger); font-weight:700; }
+.t-mini-more{ font-size:.64rem; color:var(--muted); }
+.t-empty-day{ font-size:.66rem; color:var(--muted); font-style:italic; }
+
+.t-timeline{ display:grid; grid-template-columns:56px 1fr; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.t-timeline-labels{ display:flex; flex-direction:column; background:#fff; }
+.t-timeline-label{ height:50px; box-sizing:border-box; padding:.2rem .5rem 0 0; font-size:.72rem; font-weight:700; color:var(--muted); text-align:right; border-bottom:1px solid var(--line); }
+.t-timeline-track{ position:relative; border-left:1px solid var(--line); background-image:repeating-linear-gradient(var(--line) 0, var(--line) 1px, transparent 1px, transparent 50px); }
+.t-timeline-appt{ position:absolute; background:#fff; border:1px solid var(--line); border-left:4px solid var(--primary); border-radius:8px; padding:.3rem .5rem; font-size:.72rem; overflow:hidden; box-sizing:border-box; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.t-timeline-appt.conflict{ border-color:var(--danger); border-left-color:var(--danger); background:#fdf1ef; z-index:2; }
+.t-timeline-appt .tt-time{ font-weight:700; font-size:.68rem; color:var(--muted); display:block; }
+.t-timeline-appt.conflict .tt-time{ color:var(--danger); }
+.t-timeline-appt .tt-title{ font-weight:700; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.t-timeline-appt .tt-client{ font-size:.68rem; color:var(--muted); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.t-timeline-now{ position:absolute; left:0; right:0; height:0; border-top:2px solid var(--danger); z-index:5; }
+.t-timeline-now::after{ content:"Ahora"; position:absolute; right:2px; top:-9px; background:var(--danger); color:#fff; font-size:.6rem; font-weight:700; padding:0 5px; border-radius:4px; line-height:16px; }
+
+.mini-map{ position:relative; background-color:#fff; border:1px dashed var(--line); border-radius:8px;
+  background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); }
+.mini-map-table{ position:absolute; display:flex; align-items:center; justify-content:center; font-size:.55rem; font-weight:800; color:#fff; border-radius:4px; cursor:pointer;
+  box-shadow:0 1px 2px rgba(0,0,0,.15); text-align:center; line-height:1; overflow:hidden; }
+.mini-map-table.incompatible{ cursor:not-allowed; opacity:.55; }
+.mini-map-table.current{ box-shadow:0 0 0 2px var(--primary), 0 1px 2px rgba(0,0,0,.15); }
+
 /* Reglas: listas de servicios/especialistas */
 .service-row{ display:flex; justify-content:space-between; align-items:center; padding:.65rem 0; border-bottom:1px solid var(--line); }
 .service-row:last-child{ border-bottom:none; }

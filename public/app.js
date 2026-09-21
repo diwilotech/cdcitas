@@ -49,7 +49,7 @@
   }
 
   // ---- Helpers de fecha/hora + layout de solapes, compartidos por los módulos del panel admin
-  // (admin-agenda.js, admin-calendar.js) para no repetir esta cuenta dos veces.
+  // (admin-agenda.js, admin-calendar.js, admin-floorplan.js) para no repetir esta cuenta tres veces.
   const timeToMin = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
   const minToHHMM = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
   const todayISO = () => {
