@@ -530,6 +530,9 @@
         <label class="label-xs d-block mb-1">Tipo de espacio</label>
         <select id="editSpaceType" class="form-select mb-1"></select>
         <p class="text-muted small mt-1 mb-3">El tipo determina qué servicios pueden usar este espacio (Reglas → Servicios).</p>
+        <label class="label-xs d-block mb-2">Color</label>
+        <input type="hidden" id="editSpaceColor">
+        <div class="d-flex flex-wrap gap-2 mb-3" id="editSpaceColorPicker"></div>
         <button class="btn btn-brand w-100" id="editSpaceSaveBtn">Guardar</button>
       </div>
     </div>
@@ -791,10 +794,11 @@
         <input type="text" id="editSpecialistName" class="form-control mb-3">
         <label class="label-xs d-block mb-1">Rol</label>
         <input type="text" id="editSpecialistRole" class="form-control mb-3">
-        <div class="row g-3 mb-3">
-          <div class="col-6"><label class="label-xs d-block mb-1">Iniciales</label><input type="text" id="editSpecialistAvatar" maxlength="2" class="form-control"></div>
-          <div class="col-6"><label class="label-xs d-block mb-1">Color</label><input type="color" id="editSpecialistColor" class="form-control form-control-color w-100"></div>
-        </div>
+        <label class="label-xs d-block mb-1">Iniciales</label>
+        <input type="text" id="editSpecialistAvatar" maxlength="2" class="form-control mb-3" style="max-width:120px;">
+        <label class="label-xs d-block mb-2">Color</label>
+        <input type="hidden" id="editSpecialistColor">
+        <div class="d-flex flex-wrap gap-2 mb-3" id="editSpecialistColorPicker"></div>
         <label class="label-xs d-block mb-2">Días que trabaja</label>
         <div id="editSpecialistDays" class="d-flex flex-wrap gap-2 mb-3"></div>
         <label class="label-xs d-block mb-1">Horario esos días (déjalo vacío para usar el horario general del negocio)</label>

@@ -75,6 +75,14 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 .chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
 .mini-avatar{ width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:.6rem; font-weight:800; color:#fff; flex-shrink:0; }
 
+/* Selector de color compartido (especialistas, espacios) — ver renderColorPicker en app.js */
+.color-swatch{ width:32px; height:32px; border-radius:50%; border:2px solid transparent; padding:0; cursor:pointer; flex-shrink:0; box-shadow:inset 0 0 0 2px rgba(255,255,255,.6); }
+.color-swatch.selected{ border-color:var(--ink); }
+.color-swatch-custom{ position:relative; display:flex; align-items:center; justify-content:center; border:2px dashed var(--line); color:var(--muted); overflow:hidden; margin:0; }
+.color-swatch-custom.selected{ border-style:solid; border-color:var(--ink); color:#fff; }
+.color-swatch-custom input{ position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; border:none; padding:0; }
+.color-swatch-custom i{ pointer-events:none; font-size:.85rem; }
+
 /* Agenda: línea de tiempo proporcional (las citas se posicionan/dimensionan según su hora real) */
 /* Los filtros quedan fijos arriba de la pestaña Agenda; solo la grilla (abajo) hace scroll,
    tanto horizontal (columnas de especialistas) como vertical (horas) — así mover la agenda no

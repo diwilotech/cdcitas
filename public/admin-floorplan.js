@@ -2,7 +2,7 @@
 // /staff/spaces/:id (ya existe, acepta x/y/w/h/status/type/label) — no hay estado en memoria
 // más allá de lo necesario para el arrastre en curso.
 window.FloorPlan = (function () {
-  const { api, toast, formatAMPM, todayISO, layoutOverlaps } = window.CDC;
+  const { api, toast, formatAMPM, todayISO, layoutOverlaps, renderColorPicker } = window.CDC;
   // El tamaño de celda se achica en pantallas angostas para que el plano quepa sin obligar a
   // hacer scroll horizontal en el celular — antes era un canvas fijo de 1600x720px en todos lados.
   let CELL = 80;
@@ -138,7 +138,7 @@ window.FloorPlan = (function () {
     const spot = findFreeSpot(def.w, def.h);
     await api("/staff/spaces", { method: "POST", body: {
       label: nextLabel(), type: "general", shape: def.shape, capacity: def.capacity,
-      x: spot.x, y: spot.y, w: def.w, h: def.h,
+      x: spot.x, y: spot.y, w: def.w, h: def.h, color: "#0f5257",
     } });
     toast("Espacio agregado.");
     render();
@@ -150,6 +150,11 @@ window.FloorPlan = (function () {
     render();
   }
 
+  function pickSpaceColor(color) {
+    document.getElementById("editSpaceColor").value = color;
+    renderColorPicker(document.getElementById("editSpaceColorPicker"), color, pickSpaceColor);
+  }
+
   function openEditSpace(id) {
     if (!editMode) return;
     const t = spacesCache.find((t) => t.id === id);
@@ -158,14 +163,16 @@ window.FloorPlan = (function () {
     document.getElementById("editSpaceName").value = t.label;
     document.getElementById("editSpaceType").innerHTML = spaceTypesCache.map((st) => `<option value="${st.key}">${st.label}</option>`).join("");
     document.getElementById("editSpaceType").value = t.type;
+    pickSpaceColor(t.color || "#0f5257");
     editSpaceModal = editSpaceModal || new bootstrap.Modal(document.getElementById("editSpaceModal"));
     editSpaceModal.show();
   }
   document.getElementById("editSpaceSaveBtn").onclick = async () => {
     const name = document.getElementById("editSpaceName").value.trim();
     const type = document.getElementById("editSpaceType").value;
+    const color = document.getElementById("editSpaceColor").value;
     if (!name) return toast("Ponle un nombre.", false);
-    await api(`/staff/spaces/${editingId}`, { method: "PATCH", body: { label: name, type } });
+    await api(`/staff/spaces/${editingId}`, { method: "PATCH", body: { label: name, type, color } });
     editSpaceModal.hide();
     toast("Espacio actualizado.");
     render();
@@ -207,7 +214,7 @@ window.FloorPlan = (function () {
     sizeCanvas();
     grid.innerHTML = spacesCache.map((t) => `
       <div class="table-item ${editMode ? "" : "locked"} shape-${t.shape} status-${t.status}" data-id="${t.id}"
-        style="left:${t.x * CELL}px; top:${t.y * CELL}px; width:${t.w * CELL}px; height:${t.h * CELL}px;">
+        style="left:${t.x * CELL}px; top:${t.y * CELL}px; width:${t.w * CELL}px; height:${t.h * CELL}px; border-left-width:5px; border-left-color:${t.color || "var(--primary)"};">
         <button class="t-status-dot" title="Cambiar estado" data-status-id="${t.id}"></button>
         ${editMode ? `<button class="t-remove" title="Eliminar" data-remove-id="${t.id}">✕</button>` : ""}
         <span class="t-label">${t.label} ${editMode ? `<i class="bi bi-pencil-fill" role="button" data-edit-id="${t.id}"></i>` : ""}</span>

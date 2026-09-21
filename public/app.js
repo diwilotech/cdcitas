@@ -130,9 +130,27 @@
     return { open: business.open_hour, close: business.close_hour };
   }
 
+  // Selector de color compartido (especialistas, espacios): 8 colores de ejemplo + uno "a tu
+  // gusto" (input nativo type=color, mostrado como un círculo más con un ícono de gotero). Pinta
+  // dentro de `container` y llama a onPick(hexColor) — quien lo usa se encarga de guardar el
+  // valor y volver a llamar renderColorPicker para que se vea cuál quedó seleccionado.
+  const PRESET_COLORS = ["#0f5257", "#d97a3f", "#3a6bc7", "#7a5a92", "#c0472f", "#1e6b45", "#8a6b4f", "#495057"];
+  function renderColorPicker(container, current, onPick) {
+    const isPreset = PRESET_COLORS.includes(current);
+    container.innerHTML = PRESET_COLORS.map((c) => `
+      <button type="button" class="color-swatch ${c === current ? "selected" : ""}" data-color="${c}" style="background:${c};" aria-label="${c}"></button>
+    `).join("") + `
+      <label class="color-swatch color-swatch-custom ${!isPreset && current ? "selected" : ""}" style="background:${!isPreset && current ? current : "#fff"};" title="Otro color">
+        <input type="color" value="${!isPreset && current ? current : "#0f5257"}">
+        <i class="bi bi-eyedropper"></i>
+      </label>`;
+    container.querySelectorAll("[data-color]").forEach((el) => (el.onclick = () => onPick(el.dataset.color)));
+    container.querySelector(".color-swatch-custom input").oninput = (e) => onPick(e.target.value);
+  }
+
   window.CDC = {
     api, apiRoot, tenantSlug, toast,
     timeToMin, minToHHMM, todayISO, dateToISO, formatAMPM, formatHourAMPM, formatDateHuman,
-    layoutOverlaps, effectiveHours,
+    layoutOverlaps, effectiveHours, renderColorPicker,
   };
 })();

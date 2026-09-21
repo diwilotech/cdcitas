@@ -4,7 +4,7 @@
 // (admin.js), junto con el resto de WhatsApp. Las columnas allowed_space_types/work_days y la
 // tabla puente specialist_services ya existían en el backend — esto solo les pone interfaz.
 window.Rules = (function () {
-  const { api, toast, tenantSlug } = window.CDC;
+  const { api, toast, tenantSlug, renderColorPicker } = window.CDC;
   const DOW_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
   let servicesCache = [], specialistsCache = [], spaceTypesCache = [], promotionsCache = [], treatmentTemplatesCache = [];
@@ -419,6 +419,11 @@ window.Rules = (function () {
     return Array.from(document.querySelectorAll("#editSpecialistDays .chip.active")).map((el) => Number(el.dataset.dow));
   }
 
+  function pickSpecialistColor(color) {
+    document.getElementById("editSpecialistColor").value = color;
+    renderColorPicker(document.getElementById("editSpecialistColorPicker"), color, pickSpecialistColor);
+  }
+
   async function openEditSpecialist(id) {
     const sp = specialistsCache.find((sp) => sp.id === id);
     if (!sp) return;
@@ -428,7 +433,7 @@ window.Rules = (function () {
     document.getElementById("editSpecialistName").value = sp.name;
     document.getElementById("editSpecialistRole").value = sp.role || "";
     document.getElementById("editSpecialistAvatar").value = sp.avatar;
-    document.getElementById("editSpecialistColor").value = sp.color;
+    pickSpecialistColor(sp.color);
     let workDays = [1, 2, 3, 4, 5, 6]; try { workDays = JSON.parse(sp.work_days || "[1,2,3,4,5,6]"); } catch { /* usa el default */ }
     renderDayChips(workDays);
     document.getElementById("editSpecialistOpenHour").value = sp.open_hour ?? "";
@@ -446,7 +451,7 @@ window.Rules = (function () {
     document.getElementById("editSpecialistName").value = "";
     document.getElementById("editSpecialistRole").value = "";
     document.getElementById("editSpecialistAvatar").value = "";
-    document.getElementById("editSpecialistColor").value = "#0f5257";
+    pickSpecialistColor("#0f5257");
     renderDayChips([1, 2, 3, 4, 5, 6]);
     document.getElementById("editSpecialistOpenHour").value = "";
     document.getElementById("editSpecialistCloseHour").value = "";
