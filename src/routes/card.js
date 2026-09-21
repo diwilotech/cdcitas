@@ -66,55 +66,65 @@ export function registerCard(router) {
     return json({ days, clickTargets, funnel, recentBookings });
   });
 
-  // Histograma de actividad (vistas/clicks/reservas, sumando todas las fuentes) para "Links
-  // rastreables" — con 3 escalas: por día (últimos 14), por semana (últimas 8, semana empieza
-  // lunes) o por mes (últimos 6). Los buckets se generan en JS y se les pega el conteo por
-  // business_id
+  // Histograma de actividad para "Links rastreables", desglosado por fuente (para barras
+  // apiladas) — 3 escalas, cada una a un zoom de tiempo distinto:
+  //   día    -> horas de HOY (00 a 23)
+  //   semana -> últimos 7 días
+  //   mes    -> últimas 6 semanas (lunes a lunes)
   router.get("/api/:slug/staff/card-timeseries", async (request, env, ctx) => {
     const requested = new URL(request.url).searchParams.get("granularity");
     const { keys, sqlExpr, since, granularity } = bucketPlan(requested);
     const eventRows = await all(env,
-      `SELECT ${sqlExpr} as bucket, event_type, COUNT(*) as n FROM card_events
-       WHERE business_id=? AND created_at >= ? GROUP BY bucket, event_type`,
+      `SELECT ${sqlExpr} as bucket, COALESCE(source_code, '(sin fuente)') as source, event_type, COUNT(*) as n FROM card_events
+       WHERE business_id=? AND created_at >= ? GROUP BY bucket, source, event_type`,
       ctx.business.id, since);
     const bookingRows = await all(env,
-      `SELECT ${sqlExpr} as bucket, COUNT(*) as n FROM appointments
-       WHERE business_id=? AND source_code IS NOT NULL AND created_at >= ? GROUP BY bucket`,
+      `SELECT ${sqlExpr} as bucket, source_code as source, COUNT(*) as n FROM appointments
+       WHERE business_id=? AND source_code IS NOT NULL AND created_at >= ? GROUP BY bucket, source`,
       ctx.business.id, since);
-    const map = {};
-    for (const k of keys) map[k] = { bucket: k, views: 0, clicks: 0, bookings: 0 };
-    for (const r of eventRows) { if (map[r.bucket]) map[r.bucket][r.event_type === "view" ? "views" : "clicks"] += r.n; }
-    for (const r of bookingRows) { if (map[r.bucket]) map[r.bucket].bookings += r.n; }
-    return json({ granularity, series: keys.map((k) => map[k]) });
+
+    const sourceSet = new Set();
+    const bucketMap = {};
+    for (const k of keys) bucketMap[k] = {};
+    const cell = (bucket, source) => {
+      sourceSet.add(source);
+      return (bucketMap[bucket][source] ||= { views: 0, clicks: 0, bookings: 0 });
+    };
+    for (const r of eventRows) { if (bucketMap[r.bucket]) cell(r.bucket, r.source)[r.event_type === "view" ? "views" : "clicks"] += r.n; }
+    for (const r of bookingRows) { if (bucketMap[r.bucket]) cell(r.bucket, r.source).bookings += r.n; }
+
+    const sources = [...sourceSet].sort();
+    const buckets = keys.map((k) => ({ bucket: k, bySource: bucketMap[k] }));
+    return json({ granularity, sources, buckets });
   });
 }
 
 // Genera las llaves de bucket (en JS) y la expresión SQL que debe producir la MISMA llave a
-// partir de created_at, para poder cruzarlas — día: 'YYYY-MM-DD', semana: lunes de esa semana
-// como 'YYYY-MM-DD', mes: 'YYYY-MM'.
+// partir de created_at, para poder cruzarlas.
 function bucketPlan(granularity) {
-  if (granularity === "week") {
+  if (granularity === "month") {
+    // Últimas 6 semanas (lunes a lunes) — mismo cálculo de "lunes de la semana" que abajo.
     const keys = [];
     const monday = mondayOf(new Date());
-    for (let i = 7; i >= 0; i--) keys.push(isoDate(addDays(monday, -7 * i)));
-    // Lunes de la semana de created_at — el idioma "weekday 1, -7 days" que se suele recomendar
-    // falla cuando created_at YA es lunes (se va a la semana anterior de más), por eso se calcula
-    // a mano con strftime('%w') (0=domingo..6=sábado) en vez de confiar en ese modificador.
-    return { keys, sqlExpr: `date(created_at, '-' || ((strftime('%w', created_at) + 6) % 7) || ' days')`, since: `${keys[0]} 00:00:00`, granularity: "week" };
+    for (let i = 5; i >= 0; i--) keys.push(isoDate(addDays(monday, -7 * i)));
+    return { keys, sqlExpr: WEEK_START_SQL, since: `${keys[0]} 00:00:00`, granularity: "month" };
   }
-  if (granularity === "month") {
+  if (granularity === "week") {
+    // Últimos 7 días, uno por día.
     const keys = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-      keys.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
-    }
-    return { keys, sqlExpr: `strftime('%Y-%m', created_at)`, since: `${keys[0]}-01 00:00:00`, granularity: "month" };
+    for (let i = 6; i >= 0; i--) keys.push(isoDate(addDays(new Date(), -i)));
+    return { keys, sqlExpr: `substr(created_at,1,10)`, since: `${keys[0]} 00:00:00`, granularity: "week" };
   }
+  // día (por defecto): horas de HOY.
   const keys = [];
-  for (let i = 13; i >= 0; i--) keys.push(isoDate(addDays(new Date(), -i)));
-  return { keys, sqlExpr: `substr(created_at,1,10)`, since: `${keys[0]} 00:00:00`, granularity: "day" };
+  for (let h = 0; h < 24; h++) keys.push(String(h).padStart(2, "0"));
+  const today = isoDate(new Date());
+  return { keys, sqlExpr: `strftime('%H', created_at)`, since: `${today} 00:00:00`, granularity: "day" };
 }
+// Lunes de la semana de created_at — el idioma "weekday 1, -7 days" que se suele recomendar para
+// esto falla cuando created_at YA es lunes (se va a la semana anterior de más), por eso se calcula
+// a mano con strftime('%w') (0=domingo..6=sábado) en vez de confiar en ese modificador.
+const WEEK_START_SQL = `date(created_at, '-' || ((strftime('%w', created_at) + 6) % 7) || ' days')`;
 function addDays(d, n) { const c = new Date(d); c.setUTCDate(c.getUTCDate() + n); return c; }
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 function mondayOf(d) {

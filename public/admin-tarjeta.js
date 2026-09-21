@@ -372,7 +372,13 @@ window.Tarjeta = (function () {
       </div>`;
   }
 
-  /* ---------- Histograma de actividad (Día/Semana/Mes), en Links rastreables ---------- */
+  /* ---------- Histograma de actividad (Día/Semana/Mes), en Links rastreables ----------
+     Cada pestaña es un zoom de tiempo distinto: Día = horas de hoy, Semana = últimos 7 días,
+     Mes = últimas 6 semanas. Dentro de cada bucket, la barra queda apilada por fuente (un color
+     por fuente, igual en las 3 mini-gráficas de Vistas/Clicks/Reservas y en la leyenda). */
+  const SOURCE_COLORS = ["#0f5257", "#d97a3f", "#3a6bc7", "#7a5a92", "#c0472f", "#1e6b45", "#8a6b4f", "#495057", "#e0a339", "#2f8f8f"];
+  function colorForSource(sources, source) { return SOURCE_COLORS[sources.indexOf(source) % SOURCE_COLORS.length]; }
+
   let tsGranularity = "day";
   document.querySelectorAll("#cardTsTabs .chip").forEach((btn) => (btn.onclick = () => {
     tsGranularity = btn.dataset.g;
@@ -382,42 +388,53 @@ window.Tarjeta = (function () {
   async function loadTimeseries() {
     document.querySelectorAll("#cardTsTabs .chip").forEach((b) => b.classList.toggle("active", b.dataset.g === tsGranularity));
     const data = await api(`/staff/card-timeseries?granularity=${tsGranularity}`).catch(() => null);
-    renderTimeseries(data ? data.series : [], tsGranularity);
+    renderTimeseries(data, tsGranularity);
   }
 
   function bucketLabel(bucket, granularity) {
-    if (granularity === "month") {
-      const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-      return meses[Number(bucket.split("-")[1]) - 1];
-    }
+    if (granularity === "day") return `${Number(bucket)}h`; // hora del día: "00".."23" -> "0h".."23h"
     const parts = bucket.split("-"); // YYYY-MM-DD
-    return `${parts[2]}/${parts[1]}`;
+    if (granularity === "week") {
+      const dows = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+      return `${dows[new Date(bucket + "T12:00:00Z").getUTCDay()]} ${parts[2]}`;
+    }
+    return `${parts[2]}/${parts[1]}`; // mes: fecha en que empieza esa semana
   }
 
-  function renderTimeseries(series, granularity) {
+  // Una mini-gráfica apilada por fuente para UNA métrica (views/clicks/bookings) — se llama 3
+  // veces (Vistas, Clicks, Reservas), todas con el mismo eje de tiempo (buckets) y de fuentes.
+  function stackedChartHTML(buckets, sources, metricKey, granularity) {
+    const totals = buckets.map((b) => sources.reduce((sum, src) => sum + ((b.bySource[src] || {})[metricKey] || 0), 0));
+    const max = Math.max(...totals, 1);
+    return `<div class="ts-chart">
+      ${buckets.map((b, i) => `
+        <div class="ts-bucket" title="${totals[i]}">
+          <div class="ts-bar-stack">
+            ${sources.map((src) => {
+              const v = (b.bySource[src] || {})[metricKey] || 0;
+              if (!v) return "";
+              return `<div style="height:${Math.max((v / max) * 100, 3)}%;background:${colorForSource(sources, src)};" title="${src}: ${v}"></div>`;
+            }).join("")}
+          </div>
+          <span class="ts-label">${bucketLabel(b.bucket, granularity)}</span>
+        </div>`).join("")}
+    </div>`;
+  }
+
+  function renderTimeseries(data, granularity) {
     const wrap = document.getElementById("cardTimeseries");
-    if (!series.length || !series.some((s) => s.views || s.clicks || s.bookings)) {
-      wrap.innerHTML = `<p class="text-muted small mb-0">Sin datos todavía en este período.</p>`;
-      return;
-    }
-    const max = Math.max(...series.flatMap((s) => [s.views, s.clicks, s.bookings]), 1);
-    const barH = (v) => (v ? Math.max((v / max) * 100, 4) : 0);
+    if (!data || !data.buckets.length) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin datos.</p>`; return; }
+    const hasAny = data.buckets.some((b) => Object.values(b.bySource).some((s) => s.views || s.clicks || s.bookings));
+    if (!hasAny) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin datos todavía en este período.</p>`; return; }
     wrap.innerHTML = `
-      <div class="ts-chart">
-        ${series.map((s) => `
-          <div class="ts-bucket" title="Vistas: ${s.views} · Clicks: ${s.clicks} · Reservas: ${s.bookings}">
-            <div class="ts-bars">
-              <div class="ts-bar" style="height:${barH(s.views)}%;background:#0f5257;"></div>
-              <div class="ts-bar" style="height:${barH(s.clicks)}%;background:#3a6bc7;"></div>
-              <div class="ts-bar" style="height:${barH(s.bookings)}%;background:#1e6b45;"></div>
-            </div>
-            <span class="ts-label">${bucketLabel(s.bucket, granularity)}</span>
-          </div>`).join("")}
-      </div>
-      <div class="d-flex gap-3 mt-2">
-        <span class="small text-muted"><span class="ts-legend-dot" style="background:#0f5257;"></span>Vistas</span>
-        <span class="small text-muted"><span class="ts-legend-dot" style="background:#3a6bc7;"></span>Clicks</span>
-        <span class="small text-muted"><span class="ts-legend-dot" style="background:#1e6b45;"></span>Reservas</span>
+      <p class="label-xs mb-1">Vistas</p>
+      ${stackedChartHTML(data.buckets, data.sources, "views", granularity)}
+      <p class="label-xs mb-1 mt-3">Clicks</p>
+      ${stackedChartHTML(data.buckets, data.sources, "clicks", granularity)}
+      <p class="label-xs mb-1 mt-3">Reservas</p>
+      ${stackedChartHTML(data.buckets, data.sources, "bookings", granularity)}
+      <div class="d-flex flex-wrap gap-3 mt-3">
+        ${data.sources.map((s) => `<span class="small text-muted"><span class="ts-legend-dot" style="background:${colorForSource(data.sources, s)};"></span>${s}</span>`).join("")}
       </div>`;
   }
 
