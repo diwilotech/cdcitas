@@ -68,9 +68,9 @@ export function registerCard(router) {
 
   // Histograma de actividad para "Links rastreables", desglosado por fuente (para barras
   // apiladas) — 3 escalas, cada una a un zoom de tiempo distinto:
-  //   día    -> horas de HOY (00 a 23)
-  //   semana -> últimos 14 días (2 semanas)
-  //   mes    -> últimas 14 semanas (lunes a lunes)
+  //   día    -> últimas 12 horas (por hora real de reloj, ej. "14h", no "hace 3h")
+  //   semana -> últimos 12 días
+  //   mes    -> últimas 12 semanas (lunes a lunes)
   router.get("/api/:slug/staff/card-timeseries", async (request, env, ctx) => {
     const requested = new URL(request.url).searchParams.get("granularity");
     const { keys, sqlExpr, since, granularity } = bucketPlan(requested);
@@ -103,23 +103,26 @@ export function registerCard(router) {
 // partir de created_at, para poder cruzarlas.
 function bucketPlan(granularity) {
   if (granularity === "month") {
-    // Últimas 14 semanas (lunes a lunes) — mismo cálculo de "lunes de la semana" que abajo.
+    // Últimas 12 semanas (lunes a lunes) — mismo cálculo de "lunes de la semana" que abajo.
     const keys = [];
     const monday = mondayOf(new Date());
-    for (let i = 13; i >= 0; i--) keys.push(isoDate(addDays(monday, -7 * i)));
+    for (let i = 11; i >= 0; i--) keys.push(isoDate(addDays(monday, -7 * i)));
     return { keys, sqlExpr: WEEK_START_SQL, since: `${keys[0]} 00:00:00`, granularity: "month" };
   }
   if (granularity === "week") {
-    // Últimos 14 días (2 semanas), uno por día.
+    // Últimos 12 días, uno por día.
     const keys = [];
-    for (let i = 13; i >= 0; i--) keys.push(isoDate(addDays(new Date(), -i)));
+    for (let i = 11; i >= 0; i--) keys.push(isoDate(addDays(new Date(), -i)));
     return { keys, sqlExpr: `substr(created_at,1,10)`, since: `${keys[0]} 00:00:00`, granularity: "week" };
   }
-  // día (por defecto): horas de HOY.
+  // día: últimas 12 horas — ventana móvil que termina AHORA, pero cada bucket se identifica por
+  // su hora real de reloj (ej. "14"), no por "hace cuántas horas" — con solo 12 de las 24 horas
+  // posibles en la ventana, esa hora de reloj nunca se repite aunque la ventana cruce medianoche.
   const keys = [];
-  for (let h = 0; h < 24; h++) keys.push(String(h).padStart(2, "0"));
-  const today = isoDate(new Date());
-  return { keys, sqlExpr: `strftime('%H', created_at)`, since: `${today} 00:00:00`, granularity: "day" };
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) keys.push(String(new Date(now.getTime() - i * 3600000).getUTCHours()).padStart(2, "0"));
+  const since = new Date(now.getTime() - 12 * 3600000).toISOString().slice(0, 19).replace("T", " ");
+  return { keys, sqlExpr: `strftime('%H', created_at)`, since, granularity: "day" };
 }
 // Lunes de la semana de created_at — el idioma "weekday 1, -7 days" que se suele recomendar para
 // esto falla cuando created_at YA es lunes (se va a la semana anterior de más), por eso se calcula
