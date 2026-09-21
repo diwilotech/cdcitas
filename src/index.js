@@ -16,6 +16,7 @@ import { registerFlujo } from "./routes/flujo.js";
 import { registerManage } from "./routes/manage.js";
 import { registerFiles } from "./routes/files.js";
 import { registerTreatments } from "./routes/treatments.js";
+import { registerCard } from "./routes/card.js";
 import { sendDueReminders } from "./lib/reminders.js";
 import { releaseExpiredPending } from "./lib/confirm.js";
 
@@ -33,6 +34,7 @@ registerFlujo(router);
 registerFiles(router);
 registerManage(router);
 registerTreatments(router);
+registerCard(router);
 
 // Sirve un archivo estático concreto a través del binding de assets (para las rutas bonitas
 // /:slug, /:slug/admin y /admin, que no existen como archivo real).
@@ -64,6 +66,7 @@ export default {
         if (parts.length === 1) return serveAsset(env, request, "/");
         if (parts.length === 2 && parts[1] === "admin") return serveAsset(env, request, "/admin");
         if (parts.length === 2 && parts[1] === "mis-citas") return serveAsset(env, request, "/mis-citas");
+        if (parts.length === 2 && parts[1] === "tarjeta") return serveAsset(env, request, "/tarjeta");
       }
 
       return env.ASSETS.fetch(request);

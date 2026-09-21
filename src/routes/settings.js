@@ -16,7 +16,8 @@ export function registerSettings(router) {
       whatsapp_business_number: b.whatsappBusinessNumber,
       whatsapp_enabled: b.whatsappEnabled === undefined ? undefined : (b.whatsappEnabled ? 1 : 0),
       gmail_user: b.gmailUser, gmail_app_password: b.gmailAppPassword,
-      confirm_window_hours: b.confirmWindowHours, logo_key: b.logoKey };
+      confirm_window_hours: b.confirmWindowHours, logo_key: b.logoKey,
+      card_bio: b.cardBio, card_address: b.cardAddress };
     const present = Object.entries(fields).filter(([, v]) => v !== undefined);
     if (!present.length) return json(ctx.business);
     await run(env, `UPDATE businesses SET ${present.map(([k]) => `${k} = ?`).join(", ")} WHERE id = ?`,

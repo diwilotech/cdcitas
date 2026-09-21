@@ -342,6 +342,7 @@ window.Rules = (function () {
     document.getElementById("editServicePrice").value = s.price;
     document.getElementById("editServiceCancel").value = s.cancel_window_hours;
     document.getElementById("editServiceReminder").value = s.reminder_hours;
+    document.getElementById("editServiceFeatured").checked = !!s.featured;
     document.getElementById("editServiceTypes").innerHTML = serviceTypeCheckboxes(allowed);
     resetServicePhotoField(s.photo_key);
     editServiceModal = editServiceModal || new bootstrap.Modal(document.getElementById("editServiceModal"));
@@ -357,6 +358,7 @@ window.Rules = (function () {
     document.getElementById("editServicePrice").value = 0;
     document.getElementById("editServiceCancel").value = 4;
     document.getElementById("editServiceReminder").value = 12;
+    document.getElementById("editServiceFeatured").checked = false;
     document.getElementById("editServiceTypes").innerHTML = serviceTypeCheckboxes([]);
     resetServicePhotoField(null);
     editServiceModal = editServiceModal || new bootstrap.Modal(document.getElementById("editServiceModal"));
@@ -370,6 +372,7 @@ window.Rules = (function () {
       price: Math.max(0, parseInt(document.getElementById("editServicePrice").value, 10) || 0),
       cancel_window_hours: Math.max(0, parseInt(document.getElementById("editServiceCancel").value, 10) || 0),
       reminder_hours: Math.max(0, parseInt(document.getElementById("editServiceReminder").value, 10) || 0),
+      featured: document.getElementById("editServiceFeatured").checked,
       allowed_space_types: Array.from(document.querySelectorAll("#editServiceTypes input:checked")).map((el) => el.value),
     };
   }

@@ -2,7 +2,7 @@ import { makeResource, all, first, run, uid } from "../lib/db.js";
 import { registerCrud } from "../lib/crud.js";
 import { json, error, readJson } from "../lib/http.js";
 
-const services = makeResource("services", ["name", "duration_min", "price", "cancel_window_hours", "reminder_hours", "allowed_space_types", "photo_key"]);
+const services = makeResource("services", ["name", "duration_min", "price", "cancel_window_hours", "reminder_hours", "allowed_space_types", "photo_key", "featured"]);
 const specialists = makeResource("specialists", ["name", "role", "avatar", "color", "work_days", "open_hour", "close_hour"]);
 const spaces = makeResource("spaces", ["label", "type", "shape", "capacity", "x", "y", "w", "h", "status"]);
 const clients = makeResource("clients", ["name", "email", "phone"]);
@@ -10,6 +10,7 @@ const blocks = makeResource("blocks", ["specialist_id", "date", "start", "end", 
 const spaceTypes = makeResource("space_types", ["key", "label"]);
 const promotions = makeResource("promotions", ["title", "description", "code", "starts_at", "ends_at", "active"]);
 const treatments = makeResource("treatments", ["name", "description", "active"]);
+const cardLinks = makeResource("card_links", ["label", "icon", "url", "position"]);
 
 export function registerResources(router) {
   registerCrud(router, "services", services, "name");
@@ -20,6 +21,32 @@ export function registerResources(router) {
   registerCrud(router, "space-types", spaceTypes, "label");
   registerCrud(router, "promotions", promotions, "created_at DESC");
   registerCrud(router, "treatments", treatments, "created_at DESC");
+  registerCrud(router, "card-links", cardLinks, "position");
+
+  // Fuentes con nombre para armar links rastreables de la tarjeta digital (ej. "Bio de Instagram"
+  // -> https://.../:slug/tarjeta?src=bio-de-instagram). Solo crear/listar/borrar — para "editar" el
+  // negocio borra y crea de nuevo, así el link queda limpio.
+  router.get("/api/:slug/staff/card-sources", async (request, env, ctx) =>
+    json(await all(env, `SELECT * FROM card_sources WHERE business_id=? ORDER BY created_at DESC`, ctx.business.id)));
+
+  router.post("/api/:slug/staff/card-sources", async (request, env, ctx) => {
+    const { label } = await readJson(request);
+    if (!label) return error("Escribe un nombre para la fuente.");
+    const base = String(label).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "fuente";
+    let code = base, n = 1;
+    while (await first(env, `SELECT id FROM card_sources WHERE business_id=? AND code=?`, ctx.business.id, code)) {
+      code = `${base}-${++n}`;
+    }
+    const id = uid();
+    await run(env, `INSERT INTO card_sources (id, business_id, label, code) VALUES (?,?,?,?)`, id, ctx.business.id, label, code);
+    return json(await first(env, `SELECT * FROM card_sources WHERE id=?`, id), { status: 201 });
+  });
+
+  router.delete("/api/:slug/staff/card-sources/:id", async (request, env, ctx) => {
+    await run(env, `DELETE FROM card_sources WHERE business_id=? AND id=?`, ctx.business.id, ctx.params.id);
+    return json({ ok: true });
+  });
 
   // Servicios que ofrece un especialista (tabla puente specialist_services).
   router.put("/api/:slug/staff/specialists/:id/services", async (request, env, ctx) => {

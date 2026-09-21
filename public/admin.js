@@ -22,8 +22,8 @@ window.AdminShell = (function () {
     toast("No cargó app.js. Recarga con Ctrl+Shift+R o revisa la consola del navegador (F12).", false);
   }
 
-  const VIEWS = ["agenda", "calendario", "espacio", "reglas", "clientes", "flujo", "ajustes"];
-  const VIEW_TITLES = { agenda: "Agenda", calendario: "Calendario", espacio: "Espacio", reglas: "Reglas", clientes: "Clientes", flujo: "Flujo", ajustes: "Ajustes" };
+  const VIEWS = ["agenda", "calendario", "espacio", "reglas", "clientes", "tarjeta", "flujo", "ajustes"];
+  const VIEW_TITLES = { agenda: "Agenda", calendario: "Calendario", espacio: "Espacio", reglas: "Reglas", clientes: "Clientes", tarjeta: "Tarjeta", flujo: "Flujo", ajustes: "Ajustes" };
 
   function syncHeaderHeight() {
     const h = document.querySelector("header.topbar").offsetHeight;
@@ -42,6 +42,7 @@ window.AdminShell = (function () {
     if (view === "espacio") window.FloorPlan.render();
     if (view === "reglas") window.Rules.render();
     if (view === "clientes") window.Clients.render();
+    if (view === "tarjeta") window.Tarjeta.render();
     if (view === "flujo") window.Flujo.render();
     if (view === "ajustes") { loadAjustes(); renderTemplates(); }
   }
