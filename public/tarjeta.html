@@ -118,11 +118,13 @@ async function init() {
   }
 
   document.getElementById("linksList").innerHTML = card.links.map((l) => `
-    <a class="d-flex align-items-center gap-3 card-panel p-3 text-decoration-none text-body" data-link-id="${l.id}" href="${l.url}" target="_blank" rel="noopener">
+    <a class="d-flex align-items-center gap-3 card-panel p-3 text-decoration-none text-body" data-link-label="${l.label}" href="${l.url}" target="_blank" rel="noopener">
       <i class="bi ${l.icon || "bi-link-45deg"}" style="font-size:1.2rem;color:var(--primary);"></i>
       <span class="fw-semibold small">${l.label}</span>
     </a>`).join("");
-  document.querySelectorAll("[data-link-id]").forEach((el) => (el.onclick = () => track("click", el.dataset.linkId)));
+  // El nombre del link (ej. "Instagram") queda como target del click, no su id — así en la
+  // analítica del panel se ve de una qué tocaron, en vez de un uuid ilegible.
+  document.querySelectorAll("[data-link-label]").forEach((el) => (el.onclick = () => track("click", el.dataset.linkLabel)));
 
   track("view", null);
 }
