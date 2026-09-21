@@ -116,18 +116,17 @@
           <button class="btn btn-sm btn-brand flex-shrink-0" id="spaceEditToggle"><i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Editar distribución</span></button>
         </div>
 
-        <!-- Vista simple (por defecto): lista vertical de los espacios con el color de su tipo -->
-        <div id="spaceViewList" class="flex-column gap-2"></div>
+        <!-- El plano siempre se ve — es la forma de gestionar el espacio. "Editar distribución"
+             solo habilita arrastrar/redimensionar/renombrar y muestra los tipos de espacio. -->
+        <p class="text-muted small mb-2" id="spaceModeHint"></p>
+        <div class="space-toolbar flex-nowrap overflow-x-auto mb-2" id="spaceToolbar"></div>
+        <div class="grid-scroll mb-2">
+          <div class="grid-container" id="floorGrid"></div>
+        </div>
+        <p class="text-muted small mb-3" id="spaceFooterHint"></p>
 
-        <!-- Modo edición: plano arrastrable (para añadir/mover mesas) + gestión de tipos -->
-        <div id="spaceEditArea" style="display:none;">
-          <p class="text-muted small mb-2" id="spaceModeHint"></p>
-          <div class="space-toolbar flex-nowrap overflow-x-auto mb-2" id="spaceToolbar"></div>
-          <div class="grid-scroll mb-2">
-            <div class="grid-container" id="floorGrid"></div>
-          </div>
-          <p class="text-muted small mb-3" id="spaceFooterHint"></p>
-
+        <!-- Modo edición: gestión de tipos (aparece solo mientras se edita la distribución) -->
+        <div id="spaceTypesSection" style="display:none;">
           <hr class="my-3">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h3 class="h6 fw-bold display-font mb-0">Tipos de espacio</h3>

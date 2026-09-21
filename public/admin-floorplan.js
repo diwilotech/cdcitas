@@ -31,8 +31,6 @@ window.FloorPlan = (function () {
     rectV: { label: "Rectangular vertical", w: 3, h: 5, capacity: 6, shape: "rect-v" },
   };
   const STATUSES = ["libre", "ocupada", "reservada"];
-  const STATUS_LABEL = { libre: "Libre", ocupada: "Ocupada", reservada: "Reservada" };
-  const STATUS_DOT_COLOR = { libre: "#3a9a6d", ocupada: "#c0472f", reservada: "#e0a339" };
 
   let spacesCache = [];
   let spaceTypesCache = [];
@@ -59,27 +57,10 @@ window.FloorPlan = (function () {
       api("/staff/space-types").catch(() => []),
     ]);
     updateCellSize();
-    renderSpaceViewList();
     renderSpaceTypesList();
     renderToolbar();
     renderModeUI();
     renderTables();
-  }
-
-  // Vista simple (por defecto, sin editar): lista vertical de espacios con el color de su tipo —
-  // el plano arrastrable con mesas/tipos solo se ve al entrar a "Editar distribución".
-  function renderSpaceViewList() {
-    const wrap = document.getElementById("spaceViewList");
-    wrap.innerHTML = spacesCache.length ? spacesCache.map((t) => `
-      <div class="d-flex align-items-center justify-content-between p-2" data-id="${t.id}"
-        style="background:${colorAlpha(typeColor(t.type), .18)}; border-left:4px solid ${colorDarken(typeColor(t.type), .3)}; border-radius:8px; cursor:pointer;">
-        <span class="fw-semibold">${spaceDisplayName(t)}</span>
-        <span class="d-flex align-items-center gap-2">
-          <span class="badge rounded-pill" style="background:${STATUS_DOT_COLOR[t.status] || "#999"};color:#fff;font-size:.65rem;">${STATUS_LABEL[t.status] || t.status}</span>
-          <span class="text-muted small"><i class="bi bi-people-fill"></i> ${t.capacity}</span>
-        </span>
-      </div>`).join("") : `<p class="text-muted small mb-0">Sin espacios todavía — dale a "Editar distribución" para agregar el primero.</p>`;
-    wrap.querySelectorAll("[data-id]").forEach((el) => (el.onclick = () => openSchedule(el.dataset.id)));
   }
 
   /* ---------- Tipos de espacio (antes vivía en Reglas — se administra acá, junto al plano) ---------- */
@@ -172,12 +153,16 @@ window.FloorPlan = (function () {
   function renderModeUI() {
     const btn = document.getElementById("spaceEditToggle");
     btn.innerHTML = editMode ? `<i class="bi bi-check-lg"></i> Terminar edición` : `<i class="bi bi-pencil"></i> Editar distribución`;
-    document.getElementById("spaceViewList").style.display = editMode ? "none" : "flex";
-    document.getElementById("spaceEditArea").style.display = editMode ? "block" : "none";
+    // El plano se ve siempre — "Editar distribución" solo habilita arrastrar/redimensionar/
+    // renombrar sobre él, y muestra la gestión de tipos de espacio debajo.
+    document.getElementById("spaceTypesSection").style.display = editMode ? "block" : "none";
     document.querySelectorAll(".space-add-btn").forEach((b) => (b.disabled = !editMode));
-    document.getElementById("spaceModeHint").textContent = "Arrastra, redimensiona o renombra los espacios; añade tipos abajo.";
-    document.getElementById("spaceFooterHint").innerHTML =
-      `<i class="bi bi-info-circle"></i> Arrastra para mover, la esquina inferior derecha para redimensionar, el lápiz para renombrar y el punto de color para el estado.`;
+    document.getElementById("spaceModeHint").textContent = editMode
+      ? "Modo edición: arrastra, redimensiona o renombra los espacios."
+      : "Distribución del local: haz clic en un espacio para ver las citas de hoy.";
+    document.getElementById("spaceFooterHint").innerHTML = editMode
+      ? `<i class="bi bi-info-circle"></i> Arrastra para mover, la esquina inferior derecha para redimensionar, el lápiz para renombrar y el punto de color para el estado.`
+      : `<i class="bi bi-info-circle"></i> Haz clic en "Editar distribución" para moverlos, cambiarlos o gestionar los tipos de espacio.`;
   }
 
   function renderToolbar() {
