@@ -111,6 +111,17 @@
 
     <!-- ============ ESPACIO ============ -->
     <section id="view-espacio" class="view" style="display:none;">
+      <div class="card-panel p-4 mb-4">
+        <h2 class="h6 fw-bold display-font mb-3"><i class="bi bi-diagram-3"></i> Tipos de espacio</h2>
+        <p class="text-muted small mb-3">Se usan para clasificar mesas/estaciones y en cada servicio, para restringir qué espacios admite.</p>
+        <div id="spaceTypesList" class="d-flex flex-wrap gap-2 mb-3"></div>
+        <div class="row g-2" style="max-width:480px;">
+          <div class="col-5"><input class="form-control" id="newSpaceTypeLabel" placeholder="Nombre (ej. Cabina)"></div>
+          <div class="col-5"><input class="form-control" id="newSpaceTypeDescription" placeholder="Descripción (opcional)"></div>
+          <div class="col-2"><button class="btn btn-brand w-100" id="addSpaceTypeBtn">Añadir</button></div>
+        </div>
+      </div>
+
       <div class="tab-sticky-header">
         <p class="text-muted mb-2 d-none d-sm-block" id="spaceModeHint">Distribución del local: haz clic en un espacio para ver las citas del día.</p>
         <div class="space-toolbar flex-nowrap overflow-x-auto mb-2" id="spaceToolbar"></div>
@@ -125,16 +136,6 @@
 
     <!-- ============ REGLAS ============ -->
     <section id="view-reglas" class="view" style="display:none;">
-      <div class="card-panel p-4 mb-4">
-        <h2 class="h6 fw-bold display-font mb-3"><i class="bi bi-diagram-3"></i> Tipos de espacio</h2>
-        <p class="text-muted small mb-3">Se usan en Espacio (para clasificar mesas/estaciones) y en cada servicio, para restringir qué espacios admite.</p>
-        <div id="spaceTypesList" class="d-flex flex-wrap gap-2 mb-3"></div>
-        <div class="input-group" style="max-width:320px;">
-          <input class="form-control" id="newSpaceTypeLabel" placeholder="Nombre (ej. Cabina)">
-          <button class="btn btn-brand" id="addSpaceTypeBtn">Añadir</button>
-        </div>
-      </div>
-
       <div class="card-panel p-4 mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>

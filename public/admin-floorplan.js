@@ -48,10 +48,45 @@ window.FloorPlan = (function () {
       api("/staff/space-types").catch(() => []),
     ]);
     updateCellSize();
+    renderSpaceTypesList();
     renderToolbar();
     renderModeUI();
     renderTables();
   }
+
+  /* ---------- Tipos de espacio (antes vivía en Reglas — se administra acá, junto al plano) ---------- */
+  function slugify(label) {
+    return label.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "tipo";
+  }
+
+  function renderSpaceTypesList() {
+    document.getElementById("spaceTypesList").innerHTML = spaceTypesCache.length ? spaceTypesCache.map((t) => `
+      <span class="badge rounded-pill d-inline-flex align-items-center gap-2" style="background:#f0eee6;color:var(--ink);font-size:.82rem;padding:.4rem .7rem;" title="${t.description || ""}">
+        ${t.label}
+        <button type="button" class="btn-close" style="font-size:.55rem;" data-del-type="${t.id}" aria-label="Eliminar"></button>
+      </span>`).join("") : `<p class="text-muted small mb-0">Sin tipos todavía — añade el primero abajo.</p>`;
+    document.querySelectorAll("[data-del-type]").forEach((el) => (el.onclick = async () => {
+      if (!confirm("¿Eliminar este tipo de espacio? Los espacios/servicios que ya lo usan quedan con una referencia suelta.")) return;
+      await api(`/staff/space-types/${el.dataset.delType}`, { method: "DELETE" });
+      spaceTypesCache = await api("/staff/space-types").catch(() => []);
+      renderSpaceTypesList();
+    }));
+  }
+
+  document.getElementById("addSpaceTypeBtn").onclick = async () => {
+    const labelInput = document.getElementById("newSpaceTypeLabel");
+    const descInput = document.getElementById("newSpaceTypeDescription");
+    const label = labelInput.value.trim();
+    if (!label) return toast("Escribe un nombre.", false);
+    try {
+      await api("/staff/space-types", { method: "POST", body: { key: slugify(label), label, description: descInput.value.trim() || null } });
+      labelInput.value = "";
+      descInput.value = "";
+      spaceTypesCache = await api("/staff/space-types").catch(() => []);
+      renderSpaceTypesList();
+    } catch (e) { toast(e.message, false); }
+  };
 
   let resizeTimer = null;
   window.addEventListener("resize", () => {
