@@ -104,6 +104,11 @@
           <p class="text-muted small mb-3">Te mandamos un código por WhatsApp para confirmar la reserva.</p>
         </div>
 
+        <div id="slotConflictWarning" class="d-flex align-items-start gap-2 p-2 mb-3" style="display:none;background:#fdecea;border-radius:10px;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:var(--danger);"></i>
+          <p class="text-muted small mb-0">Ese horario se cruza con otra cita tuya ese día — cierra este mensaje y elige otro horario en el calendario.</p>
+        </div>
+
         <button class="btn btn-brand w-100 py-2" id="confirmBtn" disabled>
           <i class="bi bi-check2-circle"></i> Confirmar cita
         </button>
@@ -139,14 +144,16 @@ const SERVICE_THEMES = [
 
 let business = null;
 let bookingModal = null;
+let phoneCheckTimer = null;
+let checkSeq = 0; // se incrementa en cada tecla/apertura de modal, para descartar respuestas viejas que lleguen tarde
 // El celular es el dato que se pide primero — con él se revisa si la persona ya está
 // registrada (foundClient) para no volver a pedirle nombre/correo ni el PIN por WhatsApp.
-const state = { serviceId: null, specialistId: null, date: null, time: null, foundClient: null };
+const state = { serviceId: null, specialistId: null, date: null, time: null, foundClient: null, slotConflict: false };
 
 function updateConfirmBtnState() {
   const phone = document.getElementById("clientPhone").value.trim();
   const name = document.getElementById("clientName").value.trim();
-  const ok = phone.length >= 7 && (state.foundClient || name);
+  const ok = phone.length >= 7 && (state.foundClient || name) && !state.slotConflict;
   document.getElementById("confirmBtn").disabled = !ok;
 }
 
@@ -160,23 +167,52 @@ function maskName(name) {
   return first.slice(0, visible) + "***";
 }
 
-let phoneCheckTimer = null;
-function scheduleClientCheck() {
+function resetPhoneStep() {
   clearTimeout(phoneCheckTimer);
+  checkSeq++; // invalida cualquier respuesta que estuviera en camino
+  state.foundClient = null;
+  state.slotConflict = false;
+  document.getElementById("returningClientNote").style.display = "none";
+  document.getElementById("newClientFields").style.display = "none";
+  document.getElementById("slotConflictWarning").style.display = "none";
+  document.getElementById("phoneHint").textContent = "Con tu celular revisamos si ya estás registrado — así sabemos si hace falta pedirte más datos.";
+}
+
+// La grilla de horarios se arma ANTES de saber quién reserva (el celular se pide después, ya
+// elegidos servicio/especialista/fecha/hora), así que no puede tener en cuenta si esta misma
+// persona ya tiene otra cita suya cruzada esa hora — solo el POST final lo sabe. Por eso, apenas
+// se encuentra el cliente acá se vuelve a chequear ESE horario ya con su clientId, para avisar
+// de una si hay cruce en vez de que se sienta como que "a veces falla sin razón" al confirmar.
+async function checkSlotStillAvailable(clientId) {
+  const { slots } = await api(`/public/availability?serviceId=${state.serviceId}&specialistId=${state.specialistId}&date=${state.date}&clientId=${clientId}`)
+    .catch(() => ({ slots: [state.time] })); // si falla el chequeo, no bloquear de más — el POST final igual valida
+  return slots.includes(state.time);
+}
+
+function scheduleClientCheck() {
   const phone = document.getElementById("clientPhone").value.trim();
+  resetPhoneStep(); // también cancela el timer/petición anterior y limpia los avisos previos
+  const seq = checkSeq;
   const hint = document.getElementById("phoneHint");
   const note = document.getElementById("returningClientNote");
   const newFields = document.getElementById("newClientFields");
-  state.foundClient = null;
-  note.style.display = "none";
-  newFields.style.display = "none";
+  const conflict = document.getElementById("slotConflictWarning");
   updateConfirmBtnState();
-  if (phone.length < 7) { hint.textContent = "Con tu celular revisamos si ya estás registrado — así sabemos si hace falta pedirte más datos."; return; }
+  if (phone.length < 7) return;
   hint.textContent = "Revisando…";
   phoneCheckTimer = setTimeout(async () => {
     const found = await api(`/public/client-check?phone=${encodeURIComponent(phone)}`).catch(() => ({ found: false }));
-    if (document.getElementById("clientPhone").value.trim() !== phone) return; // cambió mientras esperaba
+    if (seq !== checkSeq) return; // el usuario siguió escribiendo o se reabrió el modal — esta respuesta ya no aplica
     if (found.found) {
+      const stillFree = await checkSlotStillAvailable(found.id);
+      if (seq !== checkSeq) return;
+      if (!stillFree) {
+        state.slotConflict = true;
+        hint.textContent = "";
+        conflict.style.display = "flex";
+        updateConfirmBtnState();
+        return;
+      }
       state.foundClient = found;
       hint.textContent = "";
       document.getElementById("returningClientName").textContent = maskName(found.name);
@@ -225,6 +261,10 @@ async function init() {
   document.getElementById("fabConfirm").onclick = openBookingModal;
   document.getElementById("clientPhone").addEventListener("input", scheduleClientCheck);
   document.getElementById("clientName").addEventListener("input", updateConfirmBtnState);
+  // Si cierran el modal sin confirmar (backdrop, Escape, X) se limpia todo — así una respuesta
+  // que llegue tarde de una revisión anterior nunca deja el aviso de "ya estás registrado" o el
+  // de cruce de horario pegado en la siguiente vez que lo abran.
+  document.getElementById("bookingModal").addEventListener("hidden.bs.modal", resetPhoneStep);
 
   renderServices();
   renderDays();
@@ -365,13 +405,10 @@ function openBookingModal() {
   document.getElementById("sumTime").textContent = to12h(state.time);
   document.getElementById("sumTotal").textContent = "$" + service.price;
 
-  state.foundClient = null;
   document.getElementById("clientPhone").value = "";
   document.getElementById("clientName").value = "";
   document.getElementById("clientEmail").value = "";
-  document.getElementById("phoneHint").textContent = "Con tu celular revisamos si ya estás registrado — así sabemos si hace falta pedirte más datos.";
-  document.getElementById("returningClientNote").style.display = "none";
-  document.getElementById("newClientFields").style.display = "none";
+  resetPhoneStep();
   document.getElementById("confirmBtn").disabled = true;
   bookingModal.show();
 }

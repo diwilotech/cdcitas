@@ -54,8 +54,13 @@ export function registerPublic(router) {
     const serviceId = url.searchParams.get("serviceId");
     const specialistId = url.searchParams.get("specialistId");
     const date = url.searchParams.get("date");
+    // clientId (opcional): cuando ya se sabe quién reserva (celular encontrado) se pueden bloquear
+    // también los horarios donde esa misma persona ya tiene otra cita suya ese día — si no, la
+    // grilla se pinta en verde antes de saber quién es, y recién al confirmar (POST /public/book,
+    // que sí manda clientId) aparece el rechazo, sintiéndose como que "a veces falla sin razón".
+    const clientId = url.searchParams.get("clientId") || null;
     if (!serviceId || !specialistId || !date) return error("Faltan serviceId, specialistId o date.");
-    return json(await availableSlots(env, ctx.business, { serviceId, specialistId, date }));
+    return json(await availableSlots(env, ctx.business, { serviceId, specialistId, date, clientId }));
   });
 
   // Al reservar se pide el celular primero: si ya existe un cliente con ese número no hace falta
@@ -64,9 +69,9 @@ export function registerPublic(router) {
   router.get("/api/:slug/public/client-check", async (request, env, ctx) => {
     const phone = new URL(request.url).searchParams.get("phone");
     if (!phone) return json({ found: false });
-    const client = await first(env, `SELECT name, email, verified FROM clients WHERE business_id=? AND phone=?`, ctx.business.id, phone);
-    if (!client) return json({ found: false });
-    return json({ found: true, verified: !!client.verified, name: client.name, email: client.email });
+    const client = await first(env, `SELECT id, name, email, verified FROM clients WHERE business_id=? AND phone=?`, ctx.business.id, phone);
+    if (!client || !client.name) return json({ found: false });
+    return json({ found: true, id: client.id, verified: !!client.verified, name: client.name, email: client.email });
   });
 
   router.post("/api/:slug/public/book", async (request, env, ctx) => {
