@@ -83,9 +83,12 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 .agenda-scroll{ overflow-x:auto; overflow-y:auto; -webkit-overflow-scrolling:touch; max-height:calc(100vh - 360px); }
 .agenda-grid{ min-width:max-content; }
 .agenda-head-row{ display:grid; border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff; z-index:2; }
-.agenda-head-row .hour-label{ background:#fff; }
+/* La columna de horas queda fija al hacer scroll horizontal (muchos especialistas/días), y la
+   celda de arriba a la izquierda ("Hora") queda fija en ambos sentidos a la vez — así siempre se
+   ve qué hora es y quién es cada columna, sin perder de referencia mientras se mueve la agenda. */
+.agenda-head-row .hour-label{ background:#fff; position:sticky; left:0; z-index:5; }
 .agenda-head-row .col-head{ padding:.75rem .6rem; border-left:1px solid var(--line); min-width:160px; display:flex; align-items:center; gap:.4rem; font-weight:700; font-size:.82rem; }
-.agenda-hour-labels{ position:relative; }
+.agenda-hour-labels{ position:sticky; left:0; z-index:3; background:#fff; border-right:1px solid var(--line); }
 .agenda-hour-tick{ position:absolute; right:0; left:0; transform:translateY(-50%); text-align:right; padding-right:.5rem; font-size:.75rem; font-weight:700; color:var(--muted); }
 .agenda-day-track{ position:relative; border-left:1px solid var(--line); min-width:160px; background-image:repeating-linear-gradient(var(--line) 0, var(--line) 1px, transparent 1px, transparent var(--agenda-rowpx)); }
 .agenda-closed-band{ position:absolute; left:0; right:0; background:#f4f2ea; z-index:0; }
