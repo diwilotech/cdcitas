@@ -39,6 +39,8 @@ window.FloorPlan = (function () {
   let dragCtx = null, resizeCtx = null;
   let editingId = null;
   let editSpaceModal = null, scheduleModal = null;
+  let editSpaceTypeModal = null;
+  let editingSpaceTypeId = null;
 
   function typeLabel(key) { return spaceTypesCache.find((t) => t.key === key)?.label || key; }
 
@@ -61,31 +63,74 @@ window.FloorPlan = (function () {
   }
 
   function renderSpaceTypesList() {
-    document.getElementById("spaceTypesList").innerHTML = spaceTypesCache.length ? spaceTypesCache.map((t) => `
-      <span class="badge rounded-pill d-inline-flex align-items-center gap-2" style="background:#f0eee6;color:var(--ink);font-size:.82rem;padding:.4rem .7rem;" title="${t.description || ""}">
-        ${t.label}
-        <button type="button" class="btn-close" style="font-size:.55rem;" data-del-type="${t.id}" aria-label="Eliminar"></button>
-      </span>`).join("") : `<p class="text-muted small mb-0">Sin tipos todavía — añade el primero abajo.</p>`;
-    document.querySelectorAll("[data-del-type]").forEach((el) => (el.onclick = async () => {
-      if (!confirm("¿Eliminar este tipo de espacio? Los espacios/servicios que ya lo usan quedan con una referencia suelta.")) return;
-      await api(`/staff/space-types/${el.dataset.delType}`, { method: "DELETE" });
-      spaceTypesCache = await api("/staff/space-types").catch(() => []);
-      renderSpaceTypesList();
-    }));
+    const wrap = document.getElementById("spaceTypesList");
+    wrap.innerHTML = spaceTypesCache.length ? spaceTypesCache.map((t) => `
+      <div class="d-flex justify-content-between align-items-center border-top py-2">
+        <div class="d-flex align-items-center gap-2">
+          <span style="width:16px;height:16px;border-radius:50%;flex-shrink:0;background:${t.color || "#ccc"};"></span>
+          <div>
+            <div class="fw-semibold">${t.label}</div>
+            ${t.description ? `<div class="text-muted small mt-1">${t.description}</div>` : ""}
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline-dark flex-shrink-0" data-edit-type="${t.id}"><i class="bi bi-pencil"></i></button>
+      </div>`).join("") : `<p class="text-muted small mb-0">Sin tipos todavía — añade el primero.</p>`;
+    wrap.querySelectorAll("[data-edit-type]").forEach((el) => (el.onclick = () => openEditSpaceType(el.dataset.editType)));
   }
 
-  document.getElementById("addSpaceTypeBtn").onclick = async () => {
-    const labelInput = document.getElementById("newSpaceTypeLabel");
-    const descInput = document.getElementById("newSpaceTypeDescription");
-    const label = labelInput.value.trim();
-    if (!label) return toast("Escribe un nombre.", false);
+  function pickSpaceTypeColor(color) {
+    document.getElementById("editSpaceTypeColor").value = color;
+    renderColorPicker(document.getElementById("editSpaceTypeColorPicker"), color, pickSpaceTypeColor);
+  }
+
+  function openEditSpaceType(id) {
+    const t = spaceTypesCache.find((t) => t.id === id);
+    if (!t) return;
+    editingSpaceTypeId = id;
+    document.getElementById("editSpaceTypeModalTitle").textContent = "Editar tipo de espacio";
+    document.getElementById("editSpaceTypeDeleteBtn").style.display = "inline-block";
+    document.getElementById("editSpaceTypeLabel").value = t.label;
+    document.getElementById("editSpaceTypeDescription").value = t.description || "";
+    pickSpaceTypeColor(t.color || "#0f5257");
+    editSpaceTypeModal = editSpaceTypeModal || new bootstrap.Modal(document.getElementById("editSpaceTypeModal"));
+    editSpaceTypeModal.show();
+  }
+
+  document.getElementById("addSpaceTypeOpenBtn").onclick = () => {
+    editingSpaceTypeId = null;
+    document.getElementById("editSpaceTypeModalTitle").textContent = "Añadir tipo de espacio";
+    document.getElementById("editSpaceTypeDeleteBtn").style.display = "none";
+    document.getElementById("editSpaceTypeLabel").value = "";
+    document.getElementById("editSpaceTypeDescription").value = "";
+    pickSpaceTypeColor("#0f5257");
+    editSpaceTypeModal = editSpaceTypeModal || new bootstrap.Modal(document.getElementById("editSpaceTypeModal"));
+    editSpaceTypeModal.show();
+  };
+
+  document.getElementById("editSpaceTypeSaveBtn").onclick = async () => {
+    const label = document.getElementById("editSpaceTypeLabel").value.trim();
+    if (!label) return toast("Ponle un nombre al tipo de espacio.", false);
+    const data = {
+      label,
+      description: document.getElementById("editSpaceTypeDescription").value.trim() || null,
+      color: document.getElementById("editSpaceTypeColor").value,
+    };
     try {
-      await api("/staff/space-types", { method: "POST", body: { key: slugify(label), label, description: descInput.value.trim() || null } });
-      labelInput.value = "";
-      descInput.value = "";
+      if (editingSpaceTypeId === null) await api("/staff/space-types", { method: "POST", body: { ...data, key: slugify(label) } });
+      else await api(`/staff/space-types/${editingSpaceTypeId}`, { method: "PATCH", body: data });
+      editSpaceTypeModal.hide();
+      toast("Tipo de espacio guardado.");
       spaceTypesCache = await api("/staff/space-types").catch(() => []);
       renderSpaceTypesList();
     } catch (e) { toast(e.message, false); }
+  };
+  document.getElementById("editSpaceTypeDeleteBtn").onclick = async () => {
+    if (!confirm("¿Eliminar este tipo de espacio? Los espacios/servicios que ya lo usan quedan con una referencia suelta.")) return;
+    await api(`/staff/space-types/${editingSpaceTypeId}`, { method: "DELETE" });
+    editSpaceTypeModal.hide();
+    toast("Tipo de espacio eliminado.");
+    spaceTypesCache = await api("/staff/space-types").catch(() => []);
+    renderSpaceTypesList();
   };
 
   let resizeTimer = null;
