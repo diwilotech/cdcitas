@@ -217,9 +217,10 @@
       <div class="card-panel p-4 mb-4">
         <h2 class="h6 fw-bold display-font mb-1"><i class="bi bi-share"></i> Links rastreables</h2>
         <p class="text-muted small mb-3">Crea uno por red social o campaña — cada uno abre la misma tarjeta, pero te dice de dónde vino cada visita.</p>
-        <div class="input-group mb-3" style="max-width:360px;">
-          <input class="form-control" id="newCardSourceLabel" placeholder="Ej. Bio de Instagram">
-          <button class="btn btn-brand" id="addCardSourceBtn">Crear</button>
+        <div class="row g-2 mb-3" style="max-width:520px;">
+          <div class="col-5"><select class="form-select" id="newCardSourcePlatform"></select></div>
+          <div class="col-5"><input class="form-control" id="newCardSourceLabel" placeholder="Ej. Bio de Instagram"></div>
+          <div class="col-2"><button class="btn btn-brand w-100" id="addCardSourceBtn">Crear</button></div>
         </div>
         <div id="cardSourcesList" class="d-flex flex-column gap-2"></div>
       </div>
@@ -583,12 +584,21 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
+        <label class="label-xs d-block mb-1">Red o página</label>
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="d-flex align-items-center justify-content-center flex-shrink-0" style="width:38px;height:38px;border-radius:10px;background:#f0eee6;">
+            <i class="bi bi-link-45deg" id="editCardLinkIconPreview" style="font-size:1.15rem;color:var(--primary);"></i>
+          </span>
+          <select id="editCardLinkPlatform" class="form-select"></select>
+        </div>
         <label class="label-xs d-block mb-1">Nombre</label>
         <input type="text" id="editCardLinkLabel" class="form-control mb-3" placeholder="Instagram">
-        <label class="label-xs d-block mb-1">Ícono (opcional — clase de bootstrap-icons)</label>
-        <input type="text" id="editCardLinkIcon" class="form-control mb-3" placeholder="bi-instagram">
         <label class="label-xs d-block mb-1">URL</label>
         <input type="text" id="editCardLinkUrl" class="form-control mb-3" placeholder="https://instagram.com/tu_negocio">
+        <div id="editCardLinkIconWrap" style="display:none;">
+          <label class="label-xs d-block mb-1">Ícono personalizado (clase de bootstrap-icons)</label>
+          <input type="text" id="editCardLinkIcon" class="form-control mb-3" placeholder="bi-star">
+        </div>
         <div class="d-flex gap-2">
           <button class="btn btn-outline-danger" id="editCardLinkDeleteBtn"><i class="bi bi-trash3"></i> Eliminar</button>
           <button class="btn btn-brand flex-fill" id="editCardLinkSaveBtn">Guardar</button>

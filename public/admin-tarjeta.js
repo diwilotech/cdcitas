@@ -3,6 +3,35 @@
 window.Tarjeta = (function () {
   const { api, toast, tenantSlug } = window.CDC;
 
+  // Catálogo de redes/páginas comunes — evita que el negocio tenga que adivinar el nombre de una
+  // clase de bootstrap-icons a mano; elige de la lista y el ícono/nombre se llenan solos. "Otro"
+  // queda al final para cualquier cosa que no esté en la lista (sitio propio de reservas, etc.).
+  const PLATFORMS = [
+    { label: "Instagram", icon: "bi-instagram" },
+    { label: "Facebook", icon: "bi-facebook" },
+    { label: "WhatsApp", icon: "bi-whatsapp" },
+    { label: "TikTok", icon: "bi-tiktok" },
+    { label: "YouTube", icon: "bi-youtube" },
+    { label: "X (Twitter)", icon: "bi-twitter-x" },
+    { label: "Threads", icon: "bi-threads" },
+    { label: "LinkedIn", icon: "bi-linkedin" },
+    { label: "Pinterest", icon: "bi-pinterest" },
+    { label: "Snapchat", icon: "bi-snapchat" },
+    { label: "Telegram", icon: "bi-telegram" },
+    { label: "Discord", icon: "bi-discord" },
+    { label: "Spotify", icon: "bi-spotify" },
+    { label: "Sitio web", icon: "bi-globe" },
+    { label: "Ubicación / Google Maps", icon: "bi-geo-alt-fill" },
+    { label: "Correo", icon: "bi-envelope-fill" },
+    { label: "Teléfono", icon: "bi-telephone-fill" },
+    { label: "Otro", icon: "bi-link-45deg" },
+  ];
+  const OTHER_INDEX = PLATFORMS.length - 1;
+
+  function fillPlatformSelect(select) {
+    select.innerHTML = PLATFORMS.map((p, i) => `<option value="${i}">${p.label}</option>`).join("");
+  }
+
   let cardLinksCache = [];
   let editCardLinkModal = null;
   let editingCardLinkId = null;
@@ -10,6 +39,9 @@ window.Tarjeta = (function () {
   async function render() {
     const url = `${location.origin}/${tenantSlug()}/tarjeta`;
     document.getElementById("cardPreviewLink").href = url;
+
+    fillPlatformSelect(document.getElementById("editCardLinkPlatform"));
+    fillPlatformSelect(document.getElementById("newCardSourcePlatform"));
 
     const business = await api("/staff/settings").catch(() => null);
     if (business) {
@@ -50,6 +82,28 @@ window.Tarjeta = (function () {
     wrap.querySelectorAll("[data-edit-link]").forEach((el) => (el.onclick = () => openEditCardLink(el.dataset.editLink)));
   }
 
+  // Refleja la plataforma elegida: ícono de vista previa, y el campo de ícono personalizado solo
+  // se muestra para "Otro" (con las demás, el ícono lo decide el catálogo, no hay que escribirlo).
+  function applyPlatformSelection(autoFillLabel) {
+    const idx = Number(document.getElementById("editCardLinkPlatform").value);
+    const platform = PLATFORMS[idx] || PLATFORMS[OTHER_INDEX];
+    const isOther = idx === OTHER_INDEX;
+    document.getElementById("editCardLinkIconWrap").style.display = isOther ? "block" : "none";
+    const icon = isOther ? (document.getElementById("editCardLinkIcon").value.trim() || platform.icon) : platform.icon;
+    document.getElementById("editCardLinkIconPreview").className = `bi ${icon}`;
+    if (autoFillLabel && !isOther) {
+      const labelInput = document.getElementById("editCardLinkLabel");
+      if (!labelInput.value.trim()) labelInput.value = platform.label;
+    }
+  }
+  document.getElementById("editCardLinkPlatform").onchange = () => applyPlatformSelection(true);
+  document.getElementById("editCardLinkIcon").addEventListener("input", () => applyPlatformSelection(false));
+
+  function platformIndexForIcon(icon) {
+    const idx = PLATFORMS.findIndex((p) => p.icon === icon);
+    return idx === -1 ? OTHER_INDEX : idx;
+  }
+
   function openEditCardLink(id) {
     const l = cardLinksCache.find((l) => l.id === id);
     if (!l) return;
@@ -59,6 +113,8 @@ window.Tarjeta = (function () {
     document.getElementById("editCardLinkLabel").value = l.label;
     document.getElementById("editCardLinkIcon").value = l.icon || "";
     document.getElementById("editCardLinkUrl").value = l.url;
+    document.getElementById("editCardLinkPlatform").value = platformIndexForIcon(l.icon);
+    applyPlatformSelection(false);
     editCardLinkModal = editCardLinkModal || new bootstrap.Modal(document.getElementById("editCardLinkModal"));
     editCardLinkModal.show();
   }
@@ -70,6 +126,8 @@ window.Tarjeta = (function () {
     document.getElementById("editCardLinkLabel").value = "";
     document.getElementById("editCardLinkIcon").value = "";
     document.getElementById("editCardLinkUrl").value = "";
+    document.getElementById("editCardLinkPlatform").value = 0;
+    applyPlatformSelection(true);
     editCardLinkModal = editCardLinkModal || new bootstrap.Modal(document.getElementById("editCardLinkModal"));
     editCardLinkModal.show();
   };
@@ -78,7 +136,10 @@ window.Tarjeta = (function () {
     const label = document.getElementById("editCardLinkLabel").value.trim();
     const url = document.getElementById("editCardLinkUrl").value.trim();
     if (!label || !url) return toast("Ponle un nombre y una URL al link.", false);
-    const data = { label, url, icon: document.getElementById("editCardLinkIcon").value.trim() || null };
+    const idx = Number(document.getElementById("editCardLinkPlatform").value);
+    const isOther = idx === OTHER_INDEX;
+    const icon = isOther ? (document.getElementById("editCardLinkIcon").value.trim() || null) : PLATFORMS[idx].icon;
+    const data = { label, url, icon };
     try {
       if (editingCardLinkId === null) await api("/staff/card-links", { method: "POST", body: { ...data, position: cardLinksCache.length } });
       else await api(`/staff/card-links/${editingCardLinkId}`, { method: "PATCH", body: data });
@@ -124,13 +185,23 @@ window.Tarjeta = (function () {
     }));
   }
 
+  // El select solo llena el texto (no manda un ícono ni nada más) — la fuente sigue siendo un
+  // simple nombre; así se puede escribir algo como "Instagram" y luego ajustarlo a "Instagram -
+  // Bio" o "Instagram - Historia" para separar varias fuentes de la misma red.
+  document.getElementById("newCardSourcePlatform").onchange = () => {
+    const idx = Number(document.getElementById("newCardSourcePlatform").value);
+    const label = document.getElementById("newCardSourceLabel");
+    if (!label.value.trim() && PLATFORMS[idx]) label.value = PLATFORMS[idx].label;
+  };
+
   document.getElementById("addCardSourceBtn").onclick = async () => {
     const input = document.getElementById("newCardSourceLabel");
     const label = input.value.trim();
-    if (!label) return toast("Escribe un nombre para la fuente.", false);
+    if (!label) return toast("Escribe o elige un nombre para la fuente.", false);
     try {
       await api("/staff/card-sources", { method: "POST", body: { label } });
       input.value = "";
+      document.getElementById("newCardSourcePlatform").value = 0;
       renderCardSources();
     } catch (e) { toast(e.message, false); }
   };
