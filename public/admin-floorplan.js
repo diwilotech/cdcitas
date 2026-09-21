@@ -165,10 +165,17 @@ window.FloorPlan = (function () {
       : `<i class="bi bi-info-circle"></i> Haz clic en "Editar distribución" para moverlos, cambiarlos o gestionar los tipos de espacio.`;
   }
 
+  // Añadir una mesa se hace eligiendo su TIPO (con el punto de color, igual que en la lista de
+  // Tipos de espacio) en vez de una forma genérica — la forma/tamaño se ajusta después
+  // arrastrando la esquina inferior derecha, pero el tipo es lo que de verdad importa (define qué
+  // servicios la admiten). Si todavía no hay tipos creados, se avisa que hace falta uno primero.
   function renderToolbar() {
-    document.getElementById("spaceToolbar").innerHTML = Object.entries(SHAPES).map(([key, s]) =>
-      `<button class="space-add-btn" ${editMode ? "" : "disabled"} data-shape="${key}"><i class="bi bi-square"></i> ${s.label}</button>`).join("");
-    document.querySelectorAll(".space-add-btn").forEach((b) => (b.onclick = () => addTable(b.dataset.shape)));
+    const wrap = document.getElementById("spaceToolbar");
+    wrap.innerHTML = spaceTypesCache.length ? spaceTypesCache.map((t) => `
+      <button class="space-add-btn" ${editMode ? "" : "disabled"} data-type="${t.key}">
+        <span style="width:10px;height:10px;border-radius:50%;display:inline-block;background:${t.color || "#ccc"};"></span> ${t.label}
+      </button>`).join("") : `<p class="text-muted small mb-0">Crea un tipo de espacio abajo para poder añadir mesas.</p>`;
+    wrap.querySelectorAll("[data-type]").forEach((b) => (b.onclick = () => addTable(b.dataset.type)));
   }
 
   function nextLabel() {
@@ -187,12 +194,12 @@ window.FloorPlan = (function () {
     return { x: 0, y: 0 };
   }
 
-  async function addTable(shapeKey) {
+  async function addTable(typeKey) {
     if (!editMode) return;
-    const def = SHAPES[shapeKey];
+    const def = SHAPES.square;
     const spot = findFreeSpot(def.w, def.h);
     await api("/staff/spaces", { method: "POST", body: {
-      label: nextLabel(), type: "general", shape: def.shape, capacity: def.capacity,
+      label: nextLabel(), type: typeKey, shape: def.shape, capacity: def.capacity,
       x: spot.x, y: spot.y, w: def.w, h: def.h,
     } });
     toast("Espacio agregado.");
