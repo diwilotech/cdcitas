@@ -75,11 +75,12 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 .chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
 .mini-avatar{ width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:.6rem; font-weight:800; color:#fff; flex-shrink:0; }
 
-/* Histograma de actividad de la tarjeta (Links rastreables → Día/Semana/Mes): una mini-gráfica
-   por métrica (vistas/clicks/reservas), cada barra apilada por fuente (un color por fuente). */
-.ts-chart{ display:flex; align-items:flex-end; gap:.5rem; height:95px; overflow-x:auto; padding-bottom:.25rem; }
-.ts-bucket{ display:flex; flex-direction:column; align-items:center; gap:.3rem; flex-shrink:0; min-width:18px; }
-.ts-bar-stack{ display:flex; flex-direction:column-reverse; width:16px; height:75px; background:#f0eee6; border-radius:2px 2px 0 0; overflow:hidden; }
+/* Histograma de actividad de cada fuente (Links rastreables → Día/Semana/Mes): una gráfica de
+   ancho completo por fuente, cada barra apilada por MÉTRICA (vista/click/reserva). Los buckets
+   se reparten el ancho disponible en partes iguales (flex:1) en vez de scroll horizontal. */
+.ts-chart-full{ display:flex; align-items:flex-end; gap:3px; width:100%; }
+.ts-bucket-full{ display:flex; flex-direction:column; align-items:center; gap:.25rem; flex:1 1 0; min-width:0; }
+.ts-bar-stack-full{ display:flex; flex-direction:column-reverse; width:100%; max-width:22px; height:60px; background:#f0eee6; border-radius:2px 2px 0 0; overflow:hidden; }
 .ts-label{ font-size:.58rem; color:var(--muted); white-space:nowrap; }
 .ts-legend-dot{ display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:.3rem; }
 

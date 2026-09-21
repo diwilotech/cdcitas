@@ -259,24 +259,94 @@ window.Tarjeta = (function () {
     renderCardLinks();
   };
 
-  /* ---------- Fuentes rastreables ---------- */
-  async function renderCardSources() {
-    const sources = await api("/staff/card-sources").catch(() => []);
-    const wrap = document.getElementById("cardSourcesList");
-    wrap.innerHTML = sources.length ? sources.map((s) => {
-      const link = `${location.origin}/${tenantSlug()}/tarjeta?src=${encodeURIComponent(s.code)}`;
-      return `
-      <div class="d-flex justify-content-between align-items-center border-top py-2">
+  /* ---------- Fuentes rastreables (cada una con su propia gráfica de actividad debajo) ----------
+     Los tabs Día/Semana/Mes viven arriba de toda la lista (un solo control para todas las
+     tarjetas), pero la gráfica de cada fuente es independiente: barra apilada por MÉTRICA
+     (vista/click/reserva, no por fuente — acá cada gráfica ya es de una sola fuente). */
+  const METRIC_COLORS = { views: "#0f5257", clicks: "#3a6bc7", bookings: "#1e6b45" };
+  let tsGranularity = "day";
+
+  document.querySelectorAll("#cardTsTabs .chip").forEach((btn) => (btn.onclick = () => {
+    tsGranularity = btn.dataset.g;
+    renderCardSources();
+  }));
+
+  function bucketLabel(bucket, granularity) {
+    if (granularity === "day") return `${Number(bucket)}h`; // hora del día: "00".."23" -> "0h".."23h"
+    const parts = bucket.split("-"); // YYYY-MM-DD
+    if (granularity === "week") {
+      const dows = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+      return `${dows[new Date(bucket + "T12:00:00Z").getUTCDay()]} ${parts[2]}`;
+    }
+    return `${parts[2]}/${parts[1]}`; // mes: fecha en que empieza esa semana
+  }
+
+  function sourceChartHTML(buckets, sourceCode, granularity) {
+    const totals = buckets.map((b) => {
+      const s = b.bySource[sourceCode] || {};
+      return (s.views || 0) + (s.clicks || 0) + (s.bookings || 0);
+    });
+    const max = Math.max(...totals, 1);
+    return `<div class="ts-chart-full">
+      ${buckets.map((b) => {
+        const s = b.bySource[sourceCode] || { views: 0, clicks: 0, bookings: 0 };
+        return `
+        <div class="ts-bucket-full" title="Vistas: ${s.views} · Clicks: ${s.clicks} · Reservas: ${s.bookings}">
+          <div class="ts-bar-stack-full">
+            ${["views", "clicks", "bookings"].map((k) => s[k] ? `<div style="height:${Math.max((s[k] / max) * 100, 3)}%;background:${METRIC_COLORS[k]};"></div>` : "").join("")}
+          </div>
+          <span class="ts-label">${bucketLabel(b.bucket, granularity)}</span>
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+
+  function sourceBlockHTML(source, buckets, granularity) {
+    const header = source.link ? `
+      <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="flex-grow-1 me-2" style="min-width:0;">
-          <div class="fw-semibold small">${s.label}</div>
-          <div class="text-muted small text-truncate">${link}</div>
+          <div class="fw-semibold small">${source.label}</div>
+          <div class="text-muted small text-truncate">${source.link}</div>
         </div>
         <div class="d-flex gap-1 flex-shrink-0">
-          <button class="btn btn-sm btn-outline-dark" data-copy-source="${link}"><i class="bi bi-clipboard"></i></button>
-          <button class="btn btn-sm btn-outline-danger" data-del-source="${s.id}"><i class="bi bi-trash3"></i></button>
+          <button class="btn btn-sm btn-outline-dark" data-copy-source="${source.link}"><i class="bi bi-clipboard"></i></button>
+          <button class="btn btn-sm btn-outline-danger" data-del-source="${source.id}"><i class="bi bi-trash3"></i></button>
         </div>
-      </div>`;
-    }).join("") : `<p class="text-muted small mb-0">Sin fuentes todavía — crea la primera arriba.</p>`;
+      </div>` : `
+      <div class="fw-semibold small mb-2">${source.label} <span class="text-muted fw-normal">— visitas directas a la tarjeta, sin link rastreable</span></div>`;
+    return `<div class="p-3 mb-3" style="border:1px solid var(--line);border-radius:12px;">
+      ${header}
+      ${sourceChartHTML(buckets, source.code, granularity)}
+    </div>`;
+  }
+
+  async function renderCardSources() {
+    document.querySelectorAll("#cardTsTabs .chip").forEach((b) => b.classList.toggle("active", b.dataset.g === tsGranularity));
+    const [sources, tsData] = await Promise.all([
+      api("/staff/card-sources").catch(() => []),
+      api(`/staff/card-timeseries?granularity=${tsGranularity}`).catch(() => null),
+    ]);
+    const buckets = tsData ? tsData.buckets : [];
+    const granularity = tsData ? tsData.granularity : tsGranularity;
+
+    const blocks = sources.map((s) => sourceBlockHTML({
+      label: s.label, id: s.id, code: s.code,
+      link: `${location.origin}/${tenantSlug()}/tarjeta?src=${encodeURIComponent(s.code)}`,
+    }, buckets, granularity));
+
+    // Visitas directas a la tarjeta (sin ?src=) — se muestran solo si de verdad tuvieron actividad.
+    const directHasActivity = buckets.some((b) => { const c = b.bySource["(sin fuente)"]; return c && (c.views || c.clicks || c.bookings); });
+    if (directHasActivity) blocks.push(sourceBlockHTML({ label: "(sin fuente)", code: "(sin fuente)", link: null }, buckets, granularity));
+
+    const wrap = document.getElementById("cardSourcesList");
+    wrap.innerHTML = blocks.length ? `
+      <div class="d-flex gap-3 mb-3">
+        <span class="small text-muted"><span class="ts-legend-dot" style="background:${METRIC_COLORS.views};"></span>Vistas</span>
+        <span class="small text-muted"><span class="ts-legend-dot" style="background:${METRIC_COLORS.clicks};"></span>Clicks</span>
+        <span class="small text-muted"><span class="ts-legend-dot" style="background:${METRIC_COLORS.bookings};"></span>Reservas</span>
+      </div>
+      ${blocks.join("")}` : `<p class="text-muted small mb-0">Sin fuentes todavía — crea la primera arriba.</p>`;
+
     wrap.querySelectorAll("[data-copy-source]").forEach((el) => (el.onclick = async () => {
       await navigator.clipboard.writeText(el.dataset.copySource);
       toast("Link copiado.");
@@ -315,7 +385,6 @@ window.Tarjeta = (function () {
     renderFunnel(data);
     renderClickTargets(data);
     renderRecentBookings(data);
-    await loadTimeseries();
   }
 
   // Embudo: vistas de la tarjeta -> clicks en "Reservar" -> citas realmente agendadas (con
@@ -369,72 +438,6 @@ window.Tarjeta = (function () {
             ${data.recentBookings.map((b) => `<tr><td>${b.source}</td><td>${b.clientName}</td><td>${b.clientPhone || "—"}</td><td>${b.date} ${b.start}</td></tr>`).join("")}
           </tbody>
         </table>
-      </div>`;
-  }
-
-  /* ---------- Histograma de actividad (Día/Semana/Mes), en Links rastreables ----------
-     Cada pestaña es un zoom de tiempo distinto: Día = horas de hoy, Semana = últimos 7 días,
-     Mes = últimas 6 semanas. Dentro de cada bucket, la barra queda apilada por fuente (un color
-     por fuente, igual en las 3 mini-gráficas de Vistas/Clicks/Reservas y en la leyenda). */
-  const SOURCE_COLORS = ["#0f5257", "#d97a3f", "#3a6bc7", "#7a5a92", "#c0472f", "#1e6b45", "#8a6b4f", "#495057", "#e0a339", "#2f8f8f"];
-  function colorForSource(sources, source) { return SOURCE_COLORS[sources.indexOf(source) % SOURCE_COLORS.length]; }
-
-  let tsGranularity = "day";
-  document.querySelectorAll("#cardTsTabs .chip").forEach((btn) => (btn.onclick = () => {
-    tsGranularity = btn.dataset.g;
-    loadTimeseries();
-  }));
-
-  async function loadTimeseries() {
-    document.querySelectorAll("#cardTsTabs .chip").forEach((b) => b.classList.toggle("active", b.dataset.g === tsGranularity));
-    const data = await api(`/staff/card-timeseries?granularity=${tsGranularity}`).catch(() => null);
-    renderTimeseries(data, tsGranularity);
-  }
-
-  function bucketLabel(bucket, granularity) {
-    if (granularity === "day") return `${Number(bucket)}h`; // hora del día: "00".."23" -> "0h".."23h"
-    const parts = bucket.split("-"); // YYYY-MM-DD
-    if (granularity === "week") {
-      const dows = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-      return `${dows[new Date(bucket + "T12:00:00Z").getUTCDay()]} ${parts[2]}`;
-    }
-    return `${parts[2]}/${parts[1]}`; // mes: fecha en que empieza esa semana
-  }
-
-  // Una mini-gráfica apilada por fuente para UNA métrica (views/clicks/bookings) — se llama 3
-  // veces (Vistas, Clicks, Reservas), todas con el mismo eje de tiempo (buckets) y de fuentes.
-  function stackedChartHTML(buckets, sources, metricKey, granularity) {
-    const totals = buckets.map((b) => sources.reduce((sum, src) => sum + ((b.bySource[src] || {})[metricKey] || 0), 0));
-    const max = Math.max(...totals, 1);
-    return `<div class="ts-chart">
-      ${buckets.map((b, i) => `
-        <div class="ts-bucket" title="${totals[i]}">
-          <div class="ts-bar-stack">
-            ${sources.map((src) => {
-              const v = (b.bySource[src] || {})[metricKey] || 0;
-              if (!v) return "";
-              return `<div style="height:${Math.max((v / max) * 100, 3)}%;background:${colorForSource(sources, src)};" title="${src}: ${v}"></div>`;
-            }).join("")}
-          </div>
-          <span class="ts-label">${bucketLabel(b.bucket, granularity)}</span>
-        </div>`).join("")}
-    </div>`;
-  }
-
-  function renderTimeseries(data, granularity) {
-    const wrap = document.getElementById("cardTimeseries");
-    if (!data || !data.buckets.length) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin datos.</p>`; return; }
-    const hasAny = data.buckets.some((b) => Object.values(b.bySource).some((s) => s.views || s.clicks || s.bookings));
-    if (!hasAny) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin datos todavía en este período.</p>`; return; }
-    wrap.innerHTML = `
-      <p class="label-xs mb-1">Vistas</p>
-      ${stackedChartHTML(data.buckets, data.sources, "views", granularity)}
-      <p class="label-xs mb-1 mt-3">Clicks</p>
-      ${stackedChartHTML(data.buckets, data.sources, "clicks", granularity)}
-      <p class="label-xs mb-1 mt-3">Reservas</p>
-      ${stackedChartHTML(data.buckets, data.sources, "bookings", granularity)}
-      <div class="d-flex flex-wrap gap-3 mt-3">
-        ${data.sources.map((s) => `<span class="small text-muted"><span class="ts-legend-dot" style="background:${colorForSource(data.sources, s)};"></span>${s}</span>`).join("")}
       </div>`;
   }
 
