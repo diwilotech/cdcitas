@@ -147,14 +147,19 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 .calendar-scroll{ overflow-y:auto; max-height:calc(100vh - 360px); }
 
 /* Espacio: plano del local arrastrable */
-.space-toolbar{ display:flex; flex-wrap:wrap; gap:.5rem; }
-.space-add-btn{ display:flex; align-items:center; gap:.4rem; padding:.5rem .9rem; border-radius:10px; border:1px solid var(--line); background:#fff; font-size:.82rem; font-weight:600; color:var(--ink); cursor:pointer; flex-shrink:0; white-space:nowrap; }
+/* Grilla en vez de fila libre: 5 columnas de ancho igual (menos en pantallas chicas) — así una
+   tarjeta con nombre/descripción larga no empuja a las demás, se corta con "…" dentro de su
+   propia columna en vez de deformar la fila. */
+.space-toolbar{ display:grid; grid-template-columns:repeat(5, 1fr); gap:.5rem; }
+@media (max-width: 900px){ .space-toolbar{ grid-template-columns:repeat(3, 1fr); } }
+@media (max-width: 560px){ .space-toolbar{ grid-template-columns:repeat(2, 1fr); } }
+.space-add-btn{ display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.5rem .9rem; border-radius:10px; border:1px solid var(--line); background:#fff; font-size:.82rem; font-weight:600; color:var(--ink); cursor:pointer; white-space:nowrap; }
 .space-add-btn:hover{ border-color:var(--primary); color:var(--primary); }
 .space-add-btn[disabled]{ opacity:.4; cursor:not-allowed; }
 
 /* Tarjeta de un tipo de espacio en el toolbar de Espacio: punto de color + nombre + descripción
    chica + lápiz de editar (solo en modo edición) — tocar la tarjeta añade una mesa de ese tipo. */
-.space-type-card{ display:flex; align-items:center; gap:.5rem; padding:.5rem .6rem; border-radius:10px; border:1px solid var(--line); background:#fff; cursor:pointer; flex-shrink:0; max-width:230px; }
+.space-type-card{ display:flex; align-items:center; gap:.5rem; padding:.5rem .6rem; border-radius:10px; border:1px solid var(--line); background:#fff; cursor:pointer; min-width:0; }
 .space-type-card:hover{ border-color:var(--primary); }
 .space-type-card.disabled{ opacity:.55; cursor:not-allowed; }
 .std-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
