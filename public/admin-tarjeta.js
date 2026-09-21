@@ -302,15 +302,13 @@ window.Tarjeta = (function () {
       </svg>
       <div class="ts-chart-full">
         ${buckets.map((b, i) => {
-          // Con hasta 24 barras angostas (hoy por hora) o 14 (semana/mes) no cabe una etiqueta
-          // debajo de cada una sin que se amontonen — se muestra una sí y una no.
           const s = perBucket[i];
           return `
           <div class="ts-bucket-full" title="Vistas: ${s.views} · Clicks: ${s.clicks} · Reservas: ${s.bookings}">
             <div class="ts-bar-stack-full">
               ${["views", "clicks", "bookings"].map((k) => s[k] ? `<div style="height:${Math.max((s[k] / max) * 100, 3)}%;background:${METRIC_COLORS[k]};"></div>` : "").join("")}
             </div>
-            <span class="ts-label">${i % 2 === 0 ? bucketLabel(b.bucket, granularity) : ""}</span>
+            <span class="ts-label">${bucketLabel(b.bucket, granularity)}</span>
           </div>`;
         }).join("")}
       </div>
@@ -330,7 +328,7 @@ window.Tarjeta = (function () {
         </div>
       </div>` : `
       <div class="fw-semibold small mb-2">${source.label} <span class="text-muted fw-normal">— visitas directas a la tarjeta, sin link rastreable</span></div>`;
-    return `<div class="p-3 mb-3" style="border:1px solid var(--line);border-radius:12px;">
+    return `<div class="p-3" style="border:1px solid var(--line);border-radius:12px;min-width:0;">
       ${header}
       ${sourceChartHTML(buckets, source.code, granularity)}
     </div>`;
@@ -362,7 +360,7 @@ window.Tarjeta = (function () {
         <span class="small text-muted"><span class="ts-legend-dot" style="background:${METRIC_COLORS.bookings};"></span>Reservas</span>
         <span class="small text-muted"><span class="ts-legend-line" style="background:${TREND_COLOR};"></span>Tendencia de vistas</span>
       </div>
-      ${blocks.join("")}` : `<p class="text-muted small mb-0">Sin fuentes todavía — crea la primera arriba.</p>`;
+      <div class="card-sources-grid">${blocks.join("")}</div>` : `<p class="text-muted small mb-0">Sin fuentes todavía — crea la primera arriba.</p>`;
 
     wrap.querySelectorAll("[data-copy-source]").forEach((el) => (el.onclick = async () => {
       await navigator.clipboard.writeText(el.dataset.copySource);

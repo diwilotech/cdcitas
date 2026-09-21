@@ -78,6 +78,10 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 /* Histograma de actividad de cada fuente (Links rastreables → Día/Semana/Mes): una gráfica de
    ancho completo por fuente, cada barra apilada por MÉTRICA (vista/click/reserva). Los buckets
    se reparten el ancho disponible en partes iguales (flex:1) en vez de scroll horizontal. */
+/* Tarjetas de fuentes en Links rastreables: de a 2 por fila en pantallas anchas, 1 en celular. */
+.card-sources-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:1rem; }
+@media (max-width: 700px){ .card-sources-grid{ grid-template-columns:1fr; } }
+
 .ts-chart-wrap{ position:relative; }
 .ts-trend{ position:absolute; left:0; top:0; width:100%; height:60px; pointer-events:none; overflow:visible; }
 .ts-chart-full{ display:flex; align-items:flex-end; gap:3px; width:100%; }
