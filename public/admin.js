@@ -1,5 +1,5 @@
 // Shell del panel: login, logout, pestañas (bottom-nav) y arranque de cada módulo
-// (Agenda/MonthCalendar/FloorPlan/Rules/Flujo, cada uno en su propio admin-*.js).
+// (Agenda/MonthCalendar/SpaceTypes/Rules/Flujo, cada uno en su propio admin-*.js).
 //
 // Todo el contenido va dentro de un IIFE asignado a una propiedad de window (nunca a un
 // `const`/`function` de nivel superior): admin.html carga varios <script src> en la misma
@@ -39,7 +39,7 @@ window.AdminShell = (function () {
     syncHeaderHeight();
     if (view === "agenda") window.Agenda.render();
     if (view === "calendario") window.MonthCalendar.render();
-    if (view === "espacio") window.FloorPlan.render();
+    if (view === "espacio") window.SpaceTypes.render();
     if (view === "reglas") window.Rules.render();
     if (view === "clientes") window.Clients.render();
     if (view === "tarjeta") window.Tarjeta.render();

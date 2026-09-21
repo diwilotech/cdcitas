@@ -25,7 +25,6 @@
         <button class="btn btn-sm btn-outline-dark header-action" data-view="calendario" data-bs-toggle="modal" data-bs-target="#businessHoursModal">
           <i class="bi bi-shop"></i> <span class="d-none d-sm-inline">Apertura y Cierre</span>
         </button>
-        <button class="btn btn-sm btn-brand header-action" data-view="espacio" id="spaceEditToggle"><i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Editar distribución</span></button>
       </div>
       <div class="dropdown" id="userMenu" style="display:none;">
         <button class="btn btn-sm btn-outline-dark dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown">
@@ -111,30 +110,20 @@
 
     <!-- ============ ESPACIO ============ -->
     <section id="view-espacio" class="view" style="display:none;">
-      <div class="tab-sticky-header">
-        <p class="text-muted mb-2 d-none d-sm-block" id="spaceModeHint">Distribución del local: haz clic en un espacio para ver las citas del día.</p>
-        <div class="space-toolbar flex-nowrap overflow-x-auto mb-2" id="spaceToolbar"></div>
-      </div>
       <div class="card-panel p-4">
-        <div class="grid-scroll">
-          <div class="grid-container" id="floorGrid"></div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h2 class="h6 fw-bold display-font mb-1"><i class="bi bi-diagram-3"></i> Tipos de espacio</h2>
+            <p class="text-muted small mb-0">Se usan para restringir qué espacio admite cada servicio, y para que el personal indique dónde atendió una cita (ej. "Mesa", "Cabina").</p>
+          </div>
+          <button class="btn btn-sm btn-brand flex-shrink-0" id="addSpaceTypeOpenBtn"><i class="bi bi-plus-lg"></i> Añadir</button>
         </div>
-        <p class="text-muted small mt-3 mb-0 d-none d-sm-block" id="spaceFooterHint"></p>
+        <div id="spaceTypesList"></div>
       </div>
     </section>
 
     <!-- ============ REGLAS ============ -->
     <section id="view-reglas" class="view" style="display:none;">
-      <div class="card-panel p-4 mb-4">
-        <h2 class="h6 fw-bold display-font mb-3"><i class="bi bi-diagram-3"></i> Tipos de espacio</h2>
-        <p class="text-muted small mb-3">Se usan en Espacio (para clasificar mesas/estaciones) y en cada servicio, para restringir qué espacios admite.</p>
-        <div id="spaceTypesList" class="d-flex flex-wrap gap-2 mb-3"></div>
-        <div class="input-group" style="max-width:320px;">
-          <input class="form-control" id="newSpaceTypeLabel" placeholder="Nombre (ej. Cabina)">
-          <button class="btn btn-brand" id="addSpaceTypeBtn">Añadir</button>
-        </div>
-      </div>
-
       <div class="card-panel p-4 mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
@@ -426,14 +415,14 @@
         <div id="assignSpaceMessageLog" class="mb-3" style="display:none;"></div>
         <hr class="my-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <label class="label-xs mb-0">Espacio asignado</label>
+          <label class="label-xs mb-0">Tipo de espacio asignado</label>
           <button class="btn btn-sm btn-link text-danger text-decoration-none p-0" id="assignSpaceRemoveBtn" style="display:none;">
-            <i class="bi bi-x-circle"></i> Quitar espacio
+            <i class="bi bi-x-circle"></i> Quitar
           </button>
         </div>
-        <div style="overflow-x:auto;"><div id="assignSpaceMiniMap" style="position:relative;"></div></div>
+        <div id="assignSpaceTypesList" class="d-flex flex-wrap gap-2"></div>
         <p id="assignSpaceEmpty" class="text-muted small mb-0" style="display:none;">
-          No hay espacios creados. Ve a la pestaña <strong>Espacio</strong> para agregarlos.
+          No hay tipos de espacio creados. Ve a la pestaña <strong>Espacio</strong> para agregarlos.
         </p>
         <div id="assignSpaceSaveWrap" style="display:none;">
           <button class="btn btn-brand w-100 mt-3" id="assignSpaceSaveBtn"><i class="bi bi-check2"></i> Guardar espacio</button>
@@ -624,6 +613,28 @@
         <div class="d-flex gap-2">
           <button class="btn btn-outline-danger" id="editCardLinkDeleteBtn"><i class="bi bi-trash3"></i> Eliminar</button>
           <button class="btn btn-brand flex-fill" id="editCardLinkSaveBtn">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Editar/añadir tipo de espacio -->
+<div class="modal fade" id="editSpaceTypeModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0" id="editSpaceTypeModalTitle">Editar tipo de espacio</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="label-xs d-block mb-1">Nombre</label>
+        <input type="text" id="editSpaceTypeLabel" class="form-control mb-3" placeholder="Mesa, Cabina, Terraza...">
+        <label class="label-xs d-block mb-1">Descripción (opcional)</label>
+        <textarea id="editSpaceTypeDescription" class="form-control mb-3" rows="2"></textarea>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-danger" id="editSpaceTypeDeleteBtn"><i class="bi bi-trash3"></i> Eliminar</button>
+          <button class="btn btn-brand flex-fill" id="editSpaceTypeSaveBtn">Guardar</button>
         </div>
       </div>
     </div>
@@ -936,7 +947,7 @@
 <script src="/img-cropper.js"></script>
 <script src="/admin-agenda.js"></script>
 <script src="/admin-calendar.js"></script>
-<script src="/admin-floorplan.js"></script>
+<script src="/admin-spacetypes.js"></script>
 <script src="/admin-rules.js"></script>
 <script src="/admin-clients.js"></script>
 <script src="/admin-tarjeta.js"></script>

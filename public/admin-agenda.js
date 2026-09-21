@@ -36,14 +36,14 @@ window.Agenda = (function () {
   let viewMode = "day";
   let activeSpecialist = "all";
   let specialistsCache = [];
-  let spacesCache = [];
+  let spaceTypesCache = [];
   let businessCache = null;
   let exceptionsCache = [];
 
   async function loadCatalog() {
-    [specialistsCache, spacesCache, businessCache, exceptionsCache] = await Promise.all([
+    [specialistsCache, spaceTypesCache, businessCache, exceptionsCache] = await Promise.all([
       api("/staff/specialists").catch(() => []),
-      api("/staff/spaces").catch(() => []),
+      api("/staff/space-types").catch(() => []),
       api("/staff/settings").catch(() => null),
       api("/staff/date-exceptions").catch(() => []),
     ]);
@@ -127,14 +127,14 @@ window.Agenda = (function () {
     return `<div class="agenda-now-line" style="top:${((nowM - startM) / 60) * ROWPX}px;"></div>`;
   }
 
-  function spaceLabel(id) { const s = spacesCache.find((s) => s.id === id); return s ? s.label : null; }
+  function spaceTypeLabel(key) { const t = spaceTypesCache.find((t) => t.key === key); return t ? t.label : null; }
 
   function apptCardHTML(a, compact) {
     const cls = { confirmed: "", completed: "st-completed", cancelled: "st-cancelled", "no-show": "st-no-show", reagendar: "st-reagendar", pending_confirmation: "st-pending" }[a.status] || "";
     const badgeStyle = a.status === "confirmed" ? "background:rgba(15,82,87,.1);color:var(--primary);"
       : a.status === "completed" ? "background:#f0eee6;color:var(--muted);"
       : a.status === "reagendar" || a.status === "pending_confirmation" ? "background:#fff3d6;color:#8a6d1f;" : "background:#f4e6e3;color:var(--danger);";
-    const label = spaceLabel(a.space_id);
+    const label = spaceTypeLabel(a.space_type);
     // Si es una sesión de tratamiento, se muestra su etiqueta ("Sesión 2: Aplicación") en vez del
     // nombre genérico del servicio — así se distinguen entre sí en la Agenda.
     const title = a.session_label || a.service_name;
@@ -422,13 +422,13 @@ window.Agenda = (function () {
 
   /* ---------- Asignar espacio / detalle de cita ---------- */
   const AssignSpace = (() => {
-    let currentAppt = null, modal = null, pendingSpaceId = null, pendingAction = null;
+    let currentAppt = null, modal = null, pendingSpaceType = null, pendingAction = null;
 
     async function open(apptId) {
       const appt = await findAppt(apptId);
       if (!appt) return;
       currentAppt = appt;
-      pendingSpaceId = appt.space_id;
+      pendingSpaceType = appt.space_type;
       pendingAction = null;
       await renderModal();
       modal = modal || new bootstrap.Modal(document.getElementById("assignSpaceModal"));
@@ -522,7 +522,7 @@ window.Agenda = (function () {
             </div>`).join("")}</div>`;
       } else { logBox.style.display = "none"; logBox.innerHTML = ""; }
 
-      await renderMiniMap();
+      await renderTypePicker();
     }
 
     function renderActions() {
@@ -588,53 +588,43 @@ window.Agenda = (function () {
       } catch (e) { toast(e.message, false); }
     }
 
-    async function renderMiniMap() {
+    // Antes era un mini-mapa de mesas individuales con posición/ocupación por horario; ahora se
+    // elige un TIPO de espacio (chips), sin chequeo de ocupación — un tipo no es un recurso físico
+    // puntual, así que no tiene sentido "ocuparlo" como pasaba con una mesa específica.
+    async function renderTypePicker() {
       const a = currentAppt;
-      const spaces = spacesCache.length ? spacesCache : (spacesCache = await api("/staff/spaces").catch(() => []));
-      document.getElementById("assignSpaceEmpty").style.display = spaces.length ? "none" : "block";
-      const map = document.getElementById("assignSpaceMiniMap");
-      if (!spaces.length) { map.innerHTML = ""; document.getElementById("assignSpaceSaveWrap").style.display = "none"; return; }
+      const types = spaceTypesCache.length ? spaceTypesCache : (spaceTypesCache = await api("/staff/space-types").catch(() => []));
+      document.getElementById("assignSpaceEmpty").style.display = types.length ? "none" : "block";
+      const wrap = document.getElementById("assignSpaceTypesList");
+      if (!types.length) { wrap.innerHTML = ""; document.getElementById("assignSpaceSaveWrap").style.display = "none"; return; }
 
-      const dayAppts = await api(`/staff/appointments?date=${a.date}`).catch(() => []);
       const svc = await api("/staff/services").catch(() => []);
       const service = svc.find((s) => s.id === a.service_id);
       let allowed = null;
       try { allowed = service ? JSON.parse(service.allowed_space_types || "[]") : null; } catch { allowed = null; }
       if (allowed && !allowed.length) allowed = null;
 
-      const MINI_CELL = 22;
-      const maxX = Math.max(...spaces.map((t) => t.x + t.w), 1);
-      const maxY = Math.max(...spaces.map((t) => t.y + t.h), 1);
-      map.className = "mini-map";
-      map.style.width = `${maxX * MINI_CELL}px`;
-      map.style.height = `${maxY * MINI_CELL}px`;
-      map.style.backgroundSize = `${MINI_CELL}px ${MINI_CELL}px`;
-      const overlaps = (o) => timeToMin(o.start) < timeToMin(a.end) && timeToMin(a.start) < timeToMin(o.end);
-      map.innerHTML = spaces.map((t) => {
-        const occupiedBy = dayAppts.find((o) => o.space_id === t.id && o.id !== a.id && ["confirmed", "completed", "pending_confirmation"].includes(o.status) && overlaps(o));
-        const compatible = !allowed || allowed.includes(t.type);
-        const canSelect = compatible && !occupiedBy;
-        const isSelected = pendingSpaceId === t.id;
-        const color = isSelected ? "#1e6b45" : canSelect ? "#3a9a6d" : "#b7bbb2";
-        return `<div class="mini-map-table ${isSelected ? "current" : ""} ${!canSelect ? "incompatible" : ""}" data-id="${t.id}" data-can="${canSelect}"
-          style="left:${t.x * MINI_CELL}px; top:${t.y * MINI_CELL}px; width:${t.w * MINI_CELL}px; height:${t.h * MINI_CELL}px; background:${color};"
-          title="${t.label}${occupiedBy ? " · Ocupado por " + occupiedBy.client_name : ""}">${t.label}</div>`;
+      wrap.innerHTML = types.map((t) => {
+        const compatible = !allowed || allowed.includes(t.key);
+        const isSelected = pendingSpaceType === t.key;
+        return `<button type="button" class="chip ${isSelected ? "active" : ""}" data-key="${t.key}" data-can="${compatible}" ${compatible ? "" : "disabled"}
+          title="${t.description || ""}">${t.label}</button>`;
       }).join("");
-      map.querySelectorAll(".mini-map-table").forEach((el) => (el.onclick = () => {
-        if (el.dataset.can !== "true") { toast("Ese espacio no está disponible.", false); return; }
-        pendingSpaceId = pendingSpaceId === el.dataset.id ? null : el.dataset.id;
-        renderMiniMap();
+      wrap.querySelectorAll("[data-key]").forEach((el) => (el.onclick = () => {
+        if (el.dataset.can !== "true") { toast("Ese tipo no está permitido para este servicio.", false); return; }
+        pendingSpaceType = pendingSpaceType === el.dataset.key ? null : el.dataset.key;
+        renderTypePicker();
       }));
-      document.getElementById("assignSpaceRemoveBtn").style.display = pendingSpaceId ? "inline-block" : "none";
-      document.getElementById("assignSpaceRemoveBtn").onclick = () => { pendingSpaceId = null; renderMiniMap(); };
-      document.getElementById("assignSpaceSaveWrap").style.display = pendingSpaceId !== a.space_id ? "block" : "none";
+      document.getElementById("assignSpaceRemoveBtn").style.display = pendingSpaceType ? "inline-block" : "none";
+      document.getElementById("assignSpaceRemoveBtn").onclick = () => { pendingSpaceType = null; renderTypePicker(); };
+      document.getElementById("assignSpaceSaveWrap").style.display = pendingSpaceType !== a.space_type ? "block" : "none";
     }
 
     document.getElementById("assignSpaceSaveBtn").onclick = async () => {
-      await api(`/staff/appointments/${currentAppt.id}`, { method: "PATCH", body: { space_id: pendingSpaceId } });
-      currentAppt.space_id = pendingSpaceId;
-      toast(pendingSpaceId ? "Espacio guardado." : "Espacio removido.");
-      await renderMiniMap();
+      await api(`/staff/appointments/${currentAppt.id}`, { method: "PATCH", body: { space_type: pendingSpaceType } });
+      currentAppt.space_type = pendingSpaceType;
+      toast(pendingSpaceType ? "Espacio guardado." : "Espacio removido.");
+      await renderTypePicker();
       renderTimeline();
     };
 

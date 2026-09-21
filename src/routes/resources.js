@@ -4,10 +4,9 @@ import { json, error, readJson } from "../lib/http.js";
 
 const services = makeResource("services", ["name", "duration_min", "price", "cancel_window_hours", "reminder_hours", "allowed_space_types", "photo_key", "featured"]);
 const specialists = makeResource("specialists", ["name", "role", "avatar", "color", "work_days", "open_hour", "close_hour"]);
-const spaces = makeResource("spaces", ["label", "type", "shape", "capacity", "x", "y", "w", "h", "status"]);
 const clients = makeResource("clients", ["name", "email", "phone"]);
 const blocks = makeResource("blocks", ["specialist_id", "date", "start", "end", "reason"]);
-const spaceTypes = makeResource("space_types", ["key", "label"]);
+const spaceTypes = makeResource("space_types", ["key", "label", "description"]);
 const promotions = makeResource("promotions", ["title", "description", "code", "starts_at", "ends_at", "active"]);
 const treatments = makeResource("treatments", ["name", "description", "active"]);
 const cardLinks = makeResource("card_links", ["label", "icon", "url", "position"]);
@@ -15,7 +14,6 @@ const cardLinks = makeResource("card_links", ["label", "icon", "url", "position"
 export function registerResources(router) {
   registerCrud(router, "services", services, "name");
   registerCrud(router, "specialists", specialists, "name");
-  registerCrud(router, "spaces", spaces, "rowid");
   registerCrud(router, "clients", clients, "name");
   registerCrud(router, "blocks", blocks, "date");
   registerCrud(router, "space-types", spaceTypes, "label");
