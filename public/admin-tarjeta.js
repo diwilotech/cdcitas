@@ -302,13 +302,15 @@ window.Tarjeta = (function () {
       </svg>
       <div class="ts-chart-full">
         ${buckets.map((b, i) => {
+          // Con hasta 24 barras angostas (hoy por hora) o 14 (semana/mes) no cabe una etiqueta
+          // debajo de cada una sin que se amontonen — se muestra una sí y una no.
           const s = perBucket[i];
           return `
           <div class="ts-bucket-full" title="Vistas: ${s.views} · Clicks: ${s.clicks} · Reservas: ${s.bookings}">
             <div class="ts-bar-stack-full">
               ${["views", "clicks", "bookings"].map((k) => s[k] ? `<div style="height:${Math.max((s[k] / max) * 100, 3)}%;background:${METRIC_COLORS[k]};"></div>` : "").join("")}
             </div>
-            <span class="ts-label">${bucketLabel(b.bucket, granularity)}</span>
+            <span class="ts-label">${i % 2 === 0 ? bucketLabel(b.bucket, granularity) : ""}</span>
           </div>`;
         }).join("")}
       </div>
