@@ -25,7 +25,6 @@
         <button class="btn btn-sm btn-outline-dark header-action" data-view="calendario" data-bs-toggle="modal" data-bs-target="#businessHoursModal">
           <i class="bi bi-shop"></i> <span class="d-none d-sm-inline">Apertura y Cierre</span>
         </button>
-        <button class="btn btn-sm btn-brand header-action" data-view="espacio" id="spaceEditToggle"><i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Editar distribución</span></button>
       </div>
       <div class="dropdown" id="userMenu" style="display:none;">
         <button class="btn btn-sm btn-outline-dark dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown">
@@ -111,26 +110,31 @@
 
     <!-- ============ ESPACIO ============ -->
     <section id="view-espacio" class="view" style="display:none;">
-      <div class="card-panel p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <div>
-            <h2 class="h6 fw-bold display-font mb-1"><i class="bi bi-diagram-3"></i> Tipos de espacio</h2>
-            <p class="text-muted small mb-0">Se usan para clasificar mesas/estaciones y en cada servicio, para restringir qué espacios admite.</p>
-          </div>
-          <button class="btn btn-sm btn-brand flex-shrink-0" id="addSpaceTypeOpenBtn"><i class="bi bi-plus-lg"></i> Añadir</button>
-        </div>
-        <div id="spaceTypesList"></div>
-      </div>
-
-      <div class="tab-sticky-header">
-        <p class="text-muted mb-2 d-none d-sm-block" id="spaceModeHint">Distribución del local: haz clic en un espacio para ver las citas del día.</p>
-        <div class="space-toolbar flex-nowrap overflow-x-auto mb-2" id="spaceToolbar"></div>
-      </div>
       <div class="card-panel p-4">
-        <div class="grid-scroll">
-          <div class="grid-container" id="floorGrid"></div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="h6 fw-bold display-font mb-0"><i class="bi bi-diagram-3"></i> Tipos de espacio y Distribución</h2>
+          <button class="btn btn-sm btn-brand flex-shrink-0" id="spaceEditToggle"><i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Editar distribución</span></button>
         </div>
-        <p class="text-muted small mt-3 mb-0 d-none d-sm-block" id="spaceFooterHint"></p>
+
+        <!-- Vista simple (por defecto): lista vertical de los espacios con el color de su tipo -->
+        <div id="spaceViewList" class="flex-column gap-2"></div>
+
+        <!-- Modo edición: plano arrastrable (para añadir/mover mesas) + gestión de tipos -->
+        <div id="spaceEditArea" style="display:none;">
+          <p class="text-muted small mb-2" id="spaceModeHint"></p>
+          <div class="space-toolbar flex-nowrap overflow-x-auto mb-2" id="spaceToolbar"></div>
+          <div class="grid-scroll mb-2">
+            <div class="grid-container" id="floorGrid"></div>
+          </div>
+          <p class="text-muted small mb-3" id="spaceFooterHint"></p>
+
+          <hr class="my-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="h6 fw-bold display-font mb-0">Tipos de espacio</h3>
+            <button class="btn btn-sm btn-outline-dark flex-shrink-0" id="addSpaceTypeOpenBtn"><i class="bi bi-plus-lg"></i> Añadir</button>
+          </div>
+          <div id="spaceTypesList"></div>
+        </div>
       </div>
     </section>
 
