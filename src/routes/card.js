@@ -69,8 +69,8 @@ export function registerCard(router) {
   // Histograma de actividad para "Links rastreables", desglosado por fuente (para barras
   // apiladas) — 3 escalas, cada una a un zoom de tiempo distinto:
   //   día    -> horas de HOY (00 a 23)
-  //   semana -> últimos 7 días
-  //   mes    -> últimas 6 semanas (lunes a lunes)
+  //   semana -> últimos 14 días (2 semanas)
+  //   mes    -> últimas 14 semanas (lunes a lunes)
   router.get("/api/:slug/staff/card-timeseries", async (request, env, ctx) => {
     const requested = new URL(request.url).searchParams.get("granularity");
     const { keys, sqlExpr, since, granularity } = bucketPlan(requested);
@@ -103,16 +103,16 @@ export function registerCard(router) {
 // partir de created_at, para poder cruzarlas.
 function bucketPlan(granularity) {
   if (granularity === "month") {
-    // Últimas 6 semanas (lunes a lunes) — mismo cálculo de "lunes de la semana" que abajo.
+    // Últimas 14 semanas (lunes a lunes) — mismo cálculo de "lunes de la semana" que abajo.
     const keys = [];
     const monday = mondayOf(new Date());
-    for (let i = 5; i >= 0; i--) keys.push(isoDate(addDays(monday, -7 * i)));
+    for (let i = 13; i >= 0; i--) keys.push(isoDate(addDays(monday, -7 * i)));
     return { keys, sqlExpr: WEEK_START_SQL, since: `${keys[0]} 00:00:00`, granularity: "month" };
   }
   if (granularity === "week") {
-    // Últimos 7 días, uno por día.
+    // Últimos 14 días (2 semanas), uno por día.
     const keys = [];
-    for (let i = 6; i >= 0; i--) keys.push(isoDate(addDays(new Date(), -i)));
+    for (let i = 13; i >= 0; i--) keys.push(isoDate(addDays(new Date(), -i)));
     return { keys, sqlExpr: `substr(created_at,1,10)`, since: `${keys[0]} 00:00:00`, granularity: "week" };
   }
   // día (por defecto): horas de HOY.
