@@ -57,32 +57,16 @@ window.FloorPlan = (function () {
       api("/staff/space-types").catch(() => []),
     ]);
     updateCellSize();
-    renderSpaceTypesList();
     renderToolbar();
     renderModeUI();
     renderTables();
   }
 
-  /* ---------- Tipos de espacio (antes vivía en Reglas — se administra acá, junto al plano) ---------- */
+  /* ---------- Tipos de espacio (antes vivía en Reglas, después en una lista aparte — ahora se
+     ven y se editan directo en los mismos botones del toolbar de arriba, para no repetirlos) ---------- */
   function slugify(label) {
     return label.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
       .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "tipo";
-  }
-
-  function renderSpaceTypesList() {
-    const wrap = document.getElementById("spaceTypesList");
-    wrap.innerHTML = spaceTypesCache.length ? spaceTypesCache.map((t) => `
-      <div class="d-flex justify-content-between align-items-center border-top py-2">
-        <div class="d-flex align-items-center gap-2">
-          <span style="width:16px;height:16px;border-radius:50%;flex-shrink:0;background:${t.color || "#ccc"};"></span>
-          <div>
-            <div class="fw-semibold">${t.label}</div>
-            ${t.description ? `<div class="text-muted small mt-1">${t.description}</div>` : ""}
-          </div>
-        </div>
-        <button class="btn btn-sm btn-outline-dark flex-shrink-0" data-edit-type="${t.id}"><i class="bi bi-pencil"></i></button>
-      </div>`).join("") : `<p class="text-muted small mb-0">Sin tipos todavía — añade el primero.</p>`;
-    wrap.querySelectorAll("[data-edit-type]").forEach((el) => (el.onclick = () => openEditSpaceType(el.dataset.editType)));
   }
 
   function pickSpaceTypeColor(color) {
@@ -103,7 +87,7 @@ window.FloorPlan = (function () {
     editSpaceTypeModal.show();
   }
 
-  document.getElementById("addSpaceTypeOpenBtn").onclick = () => {
+  function openAddSpaceType() {
     editingSpaceTypeId = null;
     document.getElementById("editSpaceTypeModalTitle").textContent = "Añadir tipo de espacio";
     document.getElementById("editSpaceTypeDeleteBtn").style.display = "none";
@@ -112,7 +96,7 @@ window.FloorPlan = (function () {
     pickSpaceTypeColor("#0f5257");
     editSpaceTypeModal = editSpaceTypeModal || new bootstrap.Modal(document.getElementById("editSpaceTypeModal"));
     editSpaceTypeModal.show();
-  };
+  }
 
   document.getElementById("editSpaceTypeSaveBtn").onclick = async () => {
     const label = document.getElementById("editSpaceTypeLabel").value.trim();
@@ -128,7 +112,8 @@ window.FloorPlan = (function () {
       editSpaceTypeModal.hide();
       toast("Tipo de espacio guardado.");
       spaceTypesCache = await api("/staff/space-types").catch(() => []);
-      renderSpaceTypesList();
+      renderToolbar();
+      renderTables();
     } catch (e) { toast(e.message, false); }
   };
   document.getElementById("editSpaceTypeDeleteBtn").onclick = async () => {
@@ -137,7 +122,8 @@ window.FloorPlan = (function () {
     editSpaceTypeModal.hide();
     toast("Tipo de espacio eliminado.");
     spaceTypesCache = await api("/staff/space-types").catch(() => []);
-    renderSpaceTypesList();
+    renderToolbar();
+    renderTables();
   };
 
   let resizeTimer = null;
@@ -154,11 +140,9 @@ window.FloorPlan = (function () {
     const btn = document.getElementById("spaceEditToggle");
     btn.innerHTML = editMode ? `<i class="bi bi-check-lg"></i> Terminar edición` : `<i class="bi bi-pencil"></i> Editar distribución`;
     // El plano se ve siempre — "Editar distribución" solo habilita arrastrar/redimensionar/
-    // renombrar sobre él, y muestra la gestión de tipos de espacio debajo.
-    document.getElementById("spaceTypesSection").style.display = editMode ? "block" : "none";
-    document.querySelectorAll(".space-add-btn").forEach((b) => (b.disabled = !editMode));
+    // renombrar sobre él, y en el toolbar de tipos de arriba habilita crear/editar tipos.
     document.getElementById("spaceModeHint").textContent = editMode
-      ? "Modo edición: arrastra, redimensiona o renombra los espacios."
+      ? "Modo edición: toca un tipo para añadir una mesa, arrastra para moverla."
       : "Distribución del local: haz clic en un espacio para ver las citas de hoy.";
     document.getElementById("spaceFooterHint").innerHTML = editMode
       ? `<i class="bi bi-info-circle"></i> Arrastra para mover, la esquina inferior derecha para redimensionar, el lápiz para renombrar y el punto de color para el estado.`
@@ -169,13 +153,29 @@ window.FloorPlan = (function () {
   // Tipos de espacio) en vez de una forma genérica — la forma/tamaño se ajusta después
   // arrastrando la esquina inferior derecha, pero el tipo es lo que de verdad importa (define qué
   // servicios la admiten). Si todavía no hay tipos creados, se avisa que hace falta uno primero.
+  // Cada tarjeta es un tipo de espacio: punto de color, nombre, descripción en letra chica, y (en
+  // modo edición) un lápiz para editar ese tipo — así no hace falta repetir la lista más abajo.
+  // Tocar la tarjeta (fuera del lápiz) añade una mesa nueva de ese tipo.
   function renderToolbar() {
     const wrap = document.getElementById("spaceToolbar");
-    wrap.innerHTML = spaceTypesCache.length ? spaceTypesCache.map((t) => `
-      <button class="space-add-btn" ${editMode ? "" : "disabled"} data-type="${t.key}">
-        <span style="width:10px;height:10px;border-radius:50%;display:inline-block;background:${t.color || "#ccc"};"></span> ${t.label}
-      </button>`).join("") : `<p class="text-muted small mb-0">Crea un tipo de espacio abajo para poder añadir mesas.</p>`;
-    wrap.querySelectorAll("[data-type]").forEach((b) => (b.onclick = () => addTable(b.dataset.type)));
+    const cards = spaceTypesCache.map((t) => `
+      <div class="space-type-card ${editMode ? "" : "disabled"}" data-type="${t.key}">
+        <span class="std-dot" style="background:${t.color || "#ccc"};"></span>
+        <span class="std-info">
+          <span class="std-name">${t.label}</span>
+          ${t.description ? `<span class="std-desc">${t.description}</span>` : ""}
+        </span>
+        ${editMode ? `<button type="button" class="std-edit" data-edit-type="${t.id}" title="Editar tipo"><i class="bi bi-pencil"></i></button>` : ""}
+      </div>`).join("");
+    const addBtn = editMode ? `<button type="button" class="space-add-btn" id="addSpaceTypeOpenBtn"><i class="bi bi-plus-lg"></i> Tipo</button>` : "";
+    wrap.innerHTML = cards + addBtn || `<p class="text-muted small mb-0">Crea un tipo de espacio para poder añadir mesas.</p>`;
+    wrap.querySelectorAll("[data-type]").forEach((el) => (el.onclick = (e) => {
+      if (e.target.closest("[data-edit-type]")) return;
+      addTable(el.dataset.type);
+    }));
+    wrap.querySelectorAll("[data-edit-type]").forEach((el) => (el.onclick = (e) => { e.stopPropagation(); openEditSpaceType(el.dataset.editType); }));
+    const addTypeBtn = document.getElementById("addSpaceTypeOpenBtn");
+    if (addTypeBtn) addTypeBtn.onclick = openAddSpaceType;
   }
 
   function nextLabel() {

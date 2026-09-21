@@ -151,6 +151,18 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 .space-add-btn{ display:flex; align-items:center; gap:.4rem; padding:.5rem .9rem; border-radius:10px; border:1px solid var(--line); background:#fff; font-size:.82rem; font-weight:600; color:var(--ink); cursor:pointer; flex-shrink:0; white-space:nowrap; }
 .space-add-btn:hover{ border-color:var(--primary); color:var(--primary); }
 .space-add-btn[disabled]{ opacity:.4; cursor:not-allowed; }
+
+/* Tarjeta de un tipo de espacio en el toolbar de Espacio: punto de color + nombre + descripción
+   chica + lápiz de editar (solo en modo edición) — tocar la tarjeta añade una mesa de ese tipo. */
+.space-type-card{ display:flex; align-items:center; gap:.5rem; padding:.5rem .6rem; border-radius:10px; border:1px solid var(--line); background:#fff; cursor:pointer; flex-shrink:0; max-width:230px; }
+.space-type-card:hover{ border-color:var(--primary); }
+.space-type-card.disabled{ opacity:.55; cursor:not-allowed; }
+.std-dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.std-info{ display:flex; flex-direction:column; min-width:0; line-height:1.25; }
+.std-name{ font-size:.82rem; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.std-desc{ font-size:.68rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.std-edit{ border:none; background:none; padding:0 0 0 .2rem; margin-left:auto; color:var(--muted); flex-shrink:0; }
+.std-edit:hover{ color:var(--primary); }
 .grid-scroll{ overflow:auto; -webkit-overflow-scrolling:touch; border-radius:8px; max-height:calc(100vh - 360px); }
 .grid-container{ position:relative; background-color:#fff; border-radius:8px; border:2px dashed var(--line);
   background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);

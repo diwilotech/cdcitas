@@ -116,24 +116,16 @@
           <button class="btn btn-sm btn-brand flex-shrink-0" id="spaceEditToggle"><i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Editar distribución</span></button>
         </div>
 
-        <!-- El plano siempre se ve — es la forma de gestionar el espacio. "Editar distribución"
-             solo habilita arrastrar/redimensionar/renombrar y muestra los tipos de espacio. -->
+        <!-- El plano siempre se ve — es la forma de gestionar el espacio. Cada tarjeta del
+             toolbar es un tipo de espacio (nombre, descripción, color); tocarla añade una mesa de
+             ese tipo, y su lápiz (solo en modo edición) abre el modal para editar el tipo mismo —
+             así no hace falta una lista aparte más abajo. -->
         <p class="text-muted small mb-2" id="spaceModeHint"></p>
-        <div class="space-toolbar flex-nowrap overflow-x-auto mb-2" id="spaceToolbar"></div>
+        <div class="space-toolbar mb-2" id="spaceToolbar"></div>
         <div class="grid-scroll mb-2">
           <div class="grid-container" id="floorGrid"></div>
         </div>
-        <p class="text-muted small mb-3" id="spaceFooterHint"></p>
-
-        <!-- Modo edición: gestión de tipos (aparece solo mientras se edita la distribución) -->
-        <div id="spaceTypesSection" style="display:none;">
-          <hr class="my-3">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="h6 fw-bold display-font mb-0">Tipos de espacio</h3>
-            <button class="btn btn-sm btn-outline-dark flex-shrink-0" id="addSpaceTypeOpenBtn"><i class="bi bi-plus-lg"></i> Añadir</button>
-          </div>
-          <div id="spaceTypesList"></div>
-        </div>
+        <p class="text-muted small mb-0" id="spaceFooterHint"></p>
       </div>
     </section>
 
