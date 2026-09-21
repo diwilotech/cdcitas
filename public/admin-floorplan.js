@@ -2,7 +2,7 @@
 // /staff/spaces/:id (ya existe, acepta x/y/w/h/status/type/label) — no hay estado en memoria
 // más allá de lo necesario para el arrastre en curso.
 window.FloorPlan = (function () {
-  const { api, toast, formatAMPM, todayISO, layoutOverlaps, renderColorPicker } = window.CDC;
+  const { api, toast, formatAMPM, todayISO, layoutOverlaps, renderColorPicker, colorAlpha, colorDarken } = window.CDC;
   // El tamaño de celda se achica en pantallas angostas para que el plano quepa sin obligar a
   // hacer scroll horizontal en el celular — antes era un canvas fijo de 1600x720px en todos lados.
   let CELL = 80;
@@ -46,7 +46,7 @@ window.FloorPlan = (function () {
   // El color de la mesa en el plano sale del TIPO (no es un color propio por mesa) — así todas
   // las mesas de un mismo tipo se ven igual, y cambiar el color de un tipo (pestaña Espacio →
   // Tipos de espacio) repinta de una todas las mesas que lo usan.
-  function typeColor(key) { return spaceTypesCache.find((t) => t.key === key)?.color || "var(--primary)"; }
+  function typeColor(key) { return spaceTypesCache.find((t) => t.key === key)?.color || "#0f5257"; }
   // Nombre para mostrar: "Tipo:Nombre" (ej. "General:M1") — así se identifica de una tanto el
   // tipo como la mesa puntual, sin tener que abrir el detalle.
   function spaceDisplayName(t) { return `${typeLabel(t.type)}:${t.label}`; }
@@ -259,7 +259,7 @@ window.FloorPlan = (function () {
     sizeCanvas();
     grid.innerHTML = spacesCache.map((t) => `
       <div class="table-item ${editMode ? "" : "locked"} shape-${t.shape} status-${t.status}" data-id="${t.id}"
-        style="left:${t.x * CELL}px; top:${t.y * CELL}px; width:${t.w * CELL}px; height:${t.h * CELL}px; background:${typeColor(t.type)};">
+        style="left:${t.x * CELL}px; top:${t.y * CELL}px; width:${t.w * CELL}px; height:${t.h * CELL}px; background:${colorAlpha(typeColor(t.type), .18)}; border-color:${colorDarken(typeColor(t.type), .3)};">
         <button class="t-status-dot" title="Cambiar estado" data-status-id="${t.id}"></button>
         ${editMode ? `<button class="t-remove" title="Eliminar" data-remove-id="${t.id}">✕</button>` : ""}
         <span class="t-label">${spaceDisplayName(t)} ${editMode ? `<i class="bi bi-pencil-fill" role="button" data-edit-id="${t.id}"></i>` : ""}</span>

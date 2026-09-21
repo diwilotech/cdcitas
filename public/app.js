@@ -148,9 +148,29 @@
     container.querySelector(".color-swatch-custom input").oninput = (e) => onPick(e.target.value);
   }
 
+  // Variantes de un color de tipo (espacios): traslúcido para fondos suaves, oscurecido para
+  // bordes con más contraste — así un mismo color de tipo no se ve tan "plano"/saturado al llenar
+  // un cuadro entero.
+  function hexToRgb(hex) {
+    let h = String(hex || "").replace("#", "");
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    const n = parseInt(h, 16);
+    if (isNaN(n) || h.length !== 6) return { r: 15, g: 82, b: 87 }; // #0f5257 (--primary) si no es un hex válido
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  function colorAlpha(hex, alpha) {
+    const { r, g, b } = hexToRgb(hex);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  function colorDarken(hex, amount = 0.3) {
+    const { r, g, b } = hexToRgb(hex);
+    const f = (c) => Math.max(0, Math.round(c * (1 - amount)));
+    return `rgb(${f(r)},${f(g)},${f(b)})`;
+  }
+
   window.CDC = {
     api, apiRoot, tenantSlug, toast,
     timeToMin, minToHHMM, todayISO, dateToISO, formatAMPM, formatHourAMPM, formatDateHuman,
-    layoutOverlaps, effectiveHours, renderColorPicker,
+    layoutOverlaps, effectiveHours, renderColorPicker, colorAlpha, colorDarken,
   };
 })();

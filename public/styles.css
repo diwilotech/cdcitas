@@ -155,32 +155,29 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 .grid-container{ position:relative; background-color:#fff; border-radius:8px; border:2px dashed var(--line);
   background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
   margin:0; user-select:none; }
-/* El fondo del cuadro es el color del tipo de espacio (se pone inline, por mesa, según su tipo —
-   ver typeColor() en admin-floorplan.js), así que el texto y los detalles van en blanco/claro
-   para leerse bien sobre cualquiera de los colores del selector. El borde sigue marcando el
-   estado (libre/ocupada/reservada), independiente del color del tipo. */
-.table-item{ position:absolute; display:flex; flex-direction:column; align-items:center; border:2px solid var(--primary); color:#fff;
+/* El fondo del cuadro es el color del tipo de espacio pero bien tenue (translúcido, ~18%
+   opacidad) y el borde ese mismo color pero oscurecido — ambos puestos inline por mesa según su
+   tipo (ver colorAlpha/colorDarken en app.js y typeColor() en admin-floorplan.js). El estado
+   (libre/ocupada/reservada) ahora se ve solo en el punto de color de la esquina, no en el borde. */
+.table-item{ position:absolute; display:flex; flex-direction:column; align-items:center; border:2px solid var(--primary); color:var(--ink);
   box-shadow:0 2px 6px rgba(0,0,0,.08); cursor:grab; padding:1.4rem .5rem .4rem; text-align:center; gap:.2rem; overflow:hidden; border-radius:10px; }
 .table-item.locked{ cursor:pointer; }
 .table-item.dragging{ cursor:grabbing; opacity:.85; z-index:50; box-shadow:0 8px 20px rgba(0,0,0,.2); }
 .table-item .t-label{ font-weight:700; font-size:.9rem; line-height:1.1; }
-.table-item .t-label i{ font-size:.72rem; color:rgba(255,255,255,.85); margin-left:.2rem; }
-.table-item .t-cap{ font-size:.7rem; color:rgba(255,255,255,.85); margin-bottom:.15rem; }
-.table-item .t-status-dot{ width:10px; height:10px; border-radius:50%; position:absolute; top:8px; left:8px; border:2px solid rgba(255,255,255,.7); }
-.table-item.status-libre{ border-color:#3a9a6d; }
+.table-item .t-label i{ font-size:.72rem; color:var(--muted); margin-left:.2rem; }
+.table-item .t-cap{ font-size:.7rem; color:var(--muted); margin-bottom:.15rem; }
+.table-item .t-status-dot{ width:10px; height:10px; border-radius:50%; position:absolute; top:8px; left:8px; border:none; }
 .table-item.status-libre .t-status-dot{ background:#3a9a6d; }
-.table-item.status-ocupada{ border-color:var(--danger); }
 .table-item.status-ocupada .t-status-dot{ background:var(--danger); }
-.table-item.status-reservada{ border-color:var(--amber); }
 .table-item.status-reservada .t-status-dot{ background:var(--amber); }
-.table-item .t-remove{ position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%; background:rgba(255,255,255,.25); border:none; color:#fff; font-size:.65rem; display:flex; align-items:center; justify-content:center; line-height:1; }
+.table-item .t-remove{ position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.06); border:none; color:var(--muted); font-size:.65rem; display:flex; align-items:center; justify-content:center; line-height:1; }
 .table-item .t-remove:hover{ background:var(--danger); color:#fff; }
-.table-item .t-resize{ position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 50%, rgba(255,255,255,.5) 50%); border-bottom-right-radius:8px; }
+.table-item .t-resize{ position:absolute; right:0; bottom:0; width:18px; height:18px; cursor:nwse-resize; background:linear-gradient(135deg, transparent 50%, var(--line) 50%); border-bottom-right-radius:8px; }
 .t-mini-schedule{ display:flex; flex-direction:column; gap:.15rem; width:100%; overflow:hidden; }
-.t-mini-appt{ font-size:.66rem; background:rgba(255,255,255,.2); border-radius:5px; padding:.1rem .35rem; display:flex; justify-content:space-between; gap:.3rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.t-mini-appt{ font-size:.66rem; background:rgba(15,82,87,.08); border-radius:5px; padding:.1rem .35rem; display:flex; justify-content:space-between; gap:.3rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .t-mini-appt.conflict{ background:#f4e6e3; color:var(--danger); font-weight:700; }
-.t-mini-more{ font-size:.64rem; color:rgba(255,255,255,.85); }
-.t-empty-day{ font-size:.66rem; color:rgba(255,255,255,.85); font-style:italic; }
+.t-mini-more{ font-size:.64rem; color:var(--muted); }
+.t-empty-day{ font-size:.66rem; color:var(--muted); font-style:italic; }
 
 .t-timeline{ display:grid; grid-template-columns:56px 1fr; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
 .t-timeline-labels{ display:flex; flex-direction:column; background:#fff; }

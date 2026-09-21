@@ -2,7 +2,7 @@
 // espacio a una cita, mover, añadir cita, y gestión de bloqueos. Ver la nota de scope en
 // admin.js — por eso todo cuelga de un solo `window.Agenda = (function(){...})()`.
 window.Agenda = (function () {
-  const { api, toast, timeToMin, minToHHMM, formatAMPM, formatHourAMPM, formatDateHuman, todayISO, dateToISO, layoutOverlaps, effectiveHours } = window.CDC;
+  const { api, toast, timeToMin, minToHHMM, formatAMPM, formatHourAMPM, formatDateHuman, todayISO, dateToISO, layoutOverlaps, effectiveHours, colorAlpha, colorDarken } = window.CDC;
 
   const ROWPX = 150;
   const DOW_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -130,7 +130,7 @@ window.Agenda = (function () {
   }
 
   function typeLabel(key) { return spaceTypesCache.find((t) => t.key === key)?.label || key; }
-  function typeColor(key) { return spaceTypesCache.find((t) => t.key === key)?.color || "var(--primary)"; }
+  function typeColor(key) { return spaceTypesCache.find((t) => t.key === key)?.color || "#0f5257"; }
   // Mismo formato "Tipo:Nombre" (ej. "General:M1") que en la pestaña Espacio, y el color viene
   // del tipo de esa mesa — así el badge de la Agenda se ve igual que el cuadro en el plano.
   function spaceInfo(id) {
@@ -159,7 +159,7 @@ window.Agenda = (function () {
         </div>`;
     }
     const spaceBadge = space
-      ? `<span class="badge rounded-pill" style="background:${space.color};color:#fff;"><i class="bi bi-geo-alt-fill"></i> ${space.name}</span>`
+      ? `<span class="badge rounded-pill" style="background:${colorAlpha(space.color, .14)};color:${colorDarken(space.color, .2)};"><i class="bi bi-geo-alt-fill"></i> ${space.name}</span>`
       : `<span class="badge rounded-pill" style="background:#f4e6e3;color:var(--accent);"><i class="bi bi-geo-alt"></i> Sin espacio</span>`;
     return `
       <div class="appt-card ${cls}" data-appt="${a.id}">
