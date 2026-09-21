@@ -43,7 +43,8 @@
 
   <div id="featuredWrap" class="mb-3" style="display:none;">
     <p class="label-xs mb-2">Servicios destacados</p>
-    <div id="featuredList" class="d-flex flex-column gap-2"></div>
+    <div id="featuredList" class="d-flex flex-column gap-2 mb-2"></div>
+    <a class="btn btn-outline-dark w-100 btn-sm" id="seeMoreServicesBtn" href="#">Ver más servicios</a>
   </div>
 
   <div id="linksList" class="d-flex flex-column gap-2 mb-4"></div>
@@ -113,9 +114,14 @@ async function init() {
             <div class="fw-semibold small">${s.name}</div>
             <div class="text-muted small">${s.duration_min} min · $${s.price}</div>
           </div>
+          <a class="btn btn-sm btn-outline-dark flex-shrink-0" data-see-service="${s.name}" href="/${tenantSlug()}?service=${s.id}">Ver</a>
         </div>`;
     }).join("");
+    document.querySelectorAll("[data-see-service]").forEach((el) => (el.onclick = () => track("click", `servicio: ${el.dataset.seeService}`)));
   }
+  const seeMoreBtn = document.getElementById("seeMoreServicesBtn");
+  seeMoreBtn.href = `/${tenantSlug()}`;
+  seeMoreBtn.onclick = () => track("click", "ver-mas-servicios");
 
   document.getElementById("linksList").innerHTML = card.links.map((l) => `
     <a class="d-flex align-items-center gap-3 card-panel p-3 text-decoration-none text-body" data-link-label="${l.label}" href="${l.url}" target="_blank" rel="noopener">

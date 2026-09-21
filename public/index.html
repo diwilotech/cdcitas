@@ -269,6 +269,11 @@ async function init() {
   renderServices();
   renderDays();
   updateSummary();
+
+  // Si llegan desde el botón "Ver" de un servicio destacado en la tarjeta digital
+  // (/:slug/tarjeta), el servicio ya viene elegido en vez de tener que buscarlo de nuevo.
+  const preselectId = new URLSearchParams(location.search).get("service");
+  if (preselectId && business.services.some((s) => s.id === preselectId)) selectService(preselectId);
 }
 
 function renderServices() {
