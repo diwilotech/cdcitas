@@ -313,7 +313,9 @@ window.Tarjeta = (function () {
   async function renderAnalytics() {
     const data = await api("/staff/card-analytics?days=30").catch(() => null);
     renderFunnel(data);
-    renderSourceChart(data);
+    renderClickTargets(data);
+    renderRecentBookings(data);
+    await loadTimeseries();
   }
 
   // Embudo: vistas de la tarjeta -> clicks en "Reservar" -> citas realmente agendadas (con
@@ -345,41 +347,78 @@ window.Tarjeta = (function () {
     }).join("");
   }
 
-  // Gráfico por fuente (barras Vistas/Clicks/Reservas), qué botones tocaron, y quién agendó desde
-  // cada fuente (nombre + celular) para poder identificar de verdad quién llegó por dónde.
-  function renderSourceChart(data) {
-    const wrap = document.getElementById("cardAnalyticsTable");
-    if (!data || !data.bySource.length) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin visitas todavía en los últimos 30 días.</p>`; return; }
-    const max = Math.max(...data.bySource.flatMap((s) => [s.views, s.clicks, s.bookings]), 1);
-    const bar = (label, value, color) => `
-      <div class="d-flex align-items-center gap-2 mb-1">
-        <span class="text-muted" style="font-size:.65rem;width:54px;flex-shrink:0;">${label}</span>
-        <div class="progress flex-grow-1" style="height:6px;border-radius:4px;"><div class="progress-bar" style="width:${(value / max) * 100}%;background:${color};"></div></div>
-        <span class="text-muted" style="font-size:.65rem;width:22px;text-align:right;flex-shrink:0;">${value}</span>
+  function renderClickTargets(data) {
+    const wrap = document.getElementById("cardClickTargets");
+    if (!data || !data.clickTargets.length) { wrap.innerHTML = ""; return; }
+    wrap.innerHTML = `<p class="label-xs mb-2">Qué tocaron</p>
+      <div class="d-flex flex-wrap gap-2">
+        ${data.clickTargets.map((t) => `<span class="badge rounded-pill" style="background:#f0eee6;color:var(--ink);font-size:.75rem;padding:.4rem .7rem;">${t.target}: ${t.n}</span>`).join("")}
       </div>`;
+  }
+
+  // Quién agendó desde cada fuente (nombre + celular) — para identificar de verdad quién llegó
+  // por dónde, no solo cuántos.
+  function renderRecentBookings(data) {
+    const wrap = document.getElementById("cardRecentBookings");
+    if (!data || !data.recentBookings.length) { wrap.innerHTML = ""; return; }
+    wrap.innerHTML = `<p class="label-xs mb-2">Quién agendó (últimas ${data.recentBookings.length})</p>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Fuente</th><th>Cliente</th><th>Celular</th><th>Cita</th></tr></thead>
+          <tbody>
+            ${data.recentBookings.map((b) => `<tr><td>${b.source}</td><td>${b.clientName}</td><td>${b.clientPhone || "—"}</td><td>${b.date} ${b.start}</td></tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  /* ---------- Histograma de actividad (Día/Semana/Mes), en Links rastreables ---------- */
+  let tsGranularity = "day";
+  document.querySelectorAll("#cardTsTabs .chip").forEach((btn) => (btn.onclick = () => {
+    tsGranularity = btn.dataset.g;
+    loadTimeseries();
+  }));
+
+  async function loadTimeseries() {
+    document.querySelectorAll("#cardTsTabs .chip").forEach((b) => b.classList.toggle("active", b.dataset.g === tsGranularity));
+    const data = await api(`/staff/card-timeseries?granularity=${tsGranularity}`).catch(() => null);
+    renderTimeseries(data ? data.series : [], tsGranularity);
+  }
+
+  function bucketLabel(bucket, granularity) {
+    if (granularity === "month") {
+      const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+      return meses[Number(bucket.split("-")[1]) - 1];
+    }
+    const parts = bucket.split("-"); // YYYY-MM-DD
+    return `${parts[2]}/${parts[1]}`;
+  }
+
+  function renderTimeseries(series, granularity) {
+    const wrap = document.getElementById("cardTimeseries");
+    if (!series.length || !series.some((s) => s.views || s.clicks || s.bookings)) {
+      wrap.innerHTML = `<p class="text-muted small mb-0">Sin datos todavía en este período.</p>`;
+      return;
+    }
+    const max = Math.max(...series.flatMap((s) => [s.views, s.clicks, s.bookings]), 1);
+    const barH = (v) => (v ? Math.max((v / max) * 100, 4) : 0);
     wrap.innerHTML = `
-      <div class="d-flex flex-column gap-3 mb-3">
-        ${data.bySource.map((s) => `
-          <div>
-            <div class="fw-semibold small mb-1">${s.source}</div>
-            ${bar("Vistas", s.views, "#0f5257")}
-            ${bar("Clicks", s.clicks, "#3a6bc7")}
-            ${bar("Reservas", s.bookings, "#1e6b45")}
+      <div class="ts-chart">
+        ${series.map((s) => `
+          <div class="ts-bucket" title="Vistas: ${s.views} · Clicks: ${s.clicks} · Reservas: ${s.bookings}">
+            <div class="ts-bars">
+              <div class="ts-bar" style="height:${barH(s.views)}%;background:#0f5257;"></div>
+              <div class="ts-bar" style="height:${barH(s.clicks)}%;background:#3a6bc7;"></div>
+              <div class="ts-bar" style="height:${barH(s.bookings)}%;background:#1e6b45;"></div>
+            </div>
+            <span class="ts-label">${bucketLabel(s.bucket, granularity)}</span>
           </div>`).join("")}
       </div>
-      ${data.clickTargets.length ? `<p class="label-xs mb-2">Qué tocaron</p>
-        <div class="d-flex flex-wrap gap-2 mb-3">
-          ${data.clickTargets.map((t) => `<span class="badge rounded-pill" style="background:#f0eee6;color:var(--ink);font-size:.75rem;padding:.4rem .7rem;">${t.target}: ${t.n}</span>`).join("")}
-        </div>` : ""}
-      ${data.recentBookings.length ? `<p class="label-xs mb-2">Quién agendó (últimas ${data.recentBookings.length})</p>
-        <div class="table-responsive">
-          <table class="table table-sm">
-            <thead><tr><th>Fuente</th><th>Cliente</th><th>Celular</th><th>Cita</th></tr></thead>
-            <tbody>
-              ${data.recentBookings.map((b) => `<tr><td>${b.source}</td><td>${b.clientName}</td><td>${b.clientPhone || "—"}</td><td>${b.date} ${b.start}</td></tr>`).join("")}
-            </tbody>
-          </table>
-        </div>` : ""}`;
+      <div class="d-flex gap-3 mt-2">
+        <span class="small text-muted"><span class="ts-legend-dot" style="background:#0f5257;"></span>Vistas</span>
+        <span class="small text-muted"><span class="ts-legend-dot" style="background:#3a6bc7;"></span>Clicks</span>
+        <span class="small text-muted"><span class="ts-legend-dot" style="background:#1e6b45;"></span>Reservas</span>
+      </div>`;
   }
 
   return { render };
