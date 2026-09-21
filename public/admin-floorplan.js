@@ -47,6 +47,9 @@ window.FloorPlan = (function () {
   // las mesas de un mismo tipo se ven igual, y cambiar el color de un tipo (pestaña Espacio →
   // Tipos de espacio) repinta de una todas las mesas que lo usan.
   function typeColor(key) { return spaceTypesCache.find((t) => t.key === key)?.color || "var(--primary)"; }
+  // Nombre para mostrar: "Tipo:Nombre" (ej. "General:M1") — así se identifica de una tanto el
+  // tipo como la mesa puntual, sin tener que abrir el detalle.
+  function spaceDisplayName(t) { return `${typeLabel(t.type)}:${t.label}`; }
 
   async function render() {
     [spacesCache, spaceTypesCache] = await Promise.all([
@@ -256,11 +259,11 @@ window.FloorPlan = (function () {
     sizeCanvas();
     grid.innerHTML = spacesCache.map((t) => `
       <div class="table-item ${editMode ? "" : "locked"} shape-${t.shape} status-${t.status}" data-id="${t.id}"
-        style="left:${t.x * CELL}px; top:${t.y * CELL}px; width:${t.w * CELL}px; height:${t.h * CELL}px; border-left-width:5px; border-left-color:${typeColor(t.type)};">
+        style="left:${t.x * CELL}px; top:${t.y * CELL}px; width:${t.w * CELL}px; height:${t.h * CELL}px; background:${typeColor(t.type)};">
         <button class="t-status-dot" title="Cambiar estado" data-status-id="${t.id}"></button>
         ${editMode ? `<button class="t-remove" title="Eliminar" data-remove-id="${t.id}">✕</button>` : ""}
-        <span class="t-label">${t.label} ${editMode ? `<i class="bi bi-pencil-fill" role="button" data-edit-id="${t.id}"></i>` : ""}</span>
-        <span class="t-cap"><i class="bi bi-people-fill"></i> ${t.capacity} · <span class="t-type-badge" style="color:${typeColor(t.type)};">${typeLabel(t.type)}</span></span>
+        <span class="t-label">${spaceDisplayName(t)} ${editMode ? `<i class="bi bi-pencil-fill" role="button" data-edit-id="${t.id}"></i>` : ""}</span>
+        <span class="t-cap"><i class="bi bi-people-fill"></i> ${t.capacity}</span>
         ${miniScheduleHTML(t)}
         ${editMode ? `<div class="t-resize" data-resize-id="${t.id}"></div>` : ""}
       </div>`).join("");
@@ -288,7 +291,7 @@ window.FloorPlan = (function () {
     const t = spacesCache.find((t) => t.id === id);
     if (!t) return;
     const appts = apptsForTableToday(id).sort((a, b) => a.start.localeCompare(b.start));
-    document.getElementById("tableScheduleTitle").textContent = `Horario de ${t.label} (hoy)`;
+    document.getElementById("tableScheduleTitle").textContent = `Horario de ${spaceDisplayName(t)} (hoy)`;
     document.getElementById("tableScheduleEmpty").style.display = appts.length ? "none" : "block";
     document.getElementById("tableScheduleConflictBanner").style.display = appts.some((a) => a._conflict) ? "block" : "none";
     document.getElementById("tableScheduleTimeline").innerHTML = buildTimelineHTML(appts);

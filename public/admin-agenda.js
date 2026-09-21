@@ -37,13 +37,15 @@ window.Agenda = (function () {
   let activeSpecialist = "all";
   let specialistsCache = [];
   let spacesCache = [];
+  let spaceTypesCache = [];
   let businessCache = null;
   let exceptionsCache = [];
 
   async function loadCatalog() {
-    [specialistsCache, spacesCache, businessCache, exceptionsCache] = await Promise.all([
+    [specialistsCache, spacesCache, spaceTypesCache, businessCache, exceptionsCache] = await Promise.all([
       api("/staff/specialists").catch(() => []),
       api("/staff/spaces").catch(() => []),
+      api("/staff/space-types").catch(() => []),
       api("/staff/settings").catch(() => null),
       api("/staff/date-exceptions").catch(() => []),
     ]);
@@ -127,14 +129,22 @@ window.Agenda = (function () {
     return `<div class="agenda-now-line" style="top:${((nowM - startM) / 60) * ROWPX}px;"></div>`;
   }
 
-  function spaceLabel(id) { const s = spacesCache.find((s) => s.id === id); return s ? s.label : null; }
+  function typeLabel(key) { return spaceTypesCache.find((t) => t.key === key)?.label || key; }
+  function typeColor(key) { return spaceTypesCache.find((t) => t.key === key)?.color || "var(--primary)"; }
+  // Mismo formato "Tipo:Nombre" (ej. "General:M1") que en la pestaña Espacio, y el color viene
+  // del tipo de esa mesa — así el badge de la Agenda se ve igual que el cuadro en el plano.
+  function spaceInfo(id) {
+    const s = spacesCache.find((s) => s.id === id);
+    if (!s) return null;
+    return { name: `${typeLabel(s.type)}:${s.label}`, color: typeColor(s.type) };
+  }
 
   function apptCardHTML(a, compact) {
     const cls = { confirmed: "", completed: "st-completed", cancelled: "st-cancelled", "no-show": "st-no-show", reagendar: "st-reagendar", pending_confirmation: "st-pending" }[a.status] || "";
     const badgeStyle = a.status === "confirmed" ? "background:rgba(15,82,87,.1);color:var(--primary);"
       : a.status === "completed" ? "background:#f0eee6;color:var(--muted);"
       : a.status === "reagendar" || a.status === "pending_confirmation" ? "background:#fff3d6;color:#8a6d1f;" : "background:#f4e6e3;color:var(--danger);";
-    const label = spaceLabel(a.space_id);
+    const space = spaceInfo(a.space_id);
     // Si es una sesión de tratamiento, se muestra su etiqueta ("Sesión 2: Aplicación") en vez del
     // nombre genérico del servicio — así se distinguen entre sí en la Agenda.
     const title = a.session_label || a.service_name;
@@ -148,8 +158,8 @@ window.Agenda = (function () {
           <span class="appt-meta"><i class="bi bi-person"></i> ${a.client_name}</span>
         </div>`;
     }
-    const spaceBadge = label
-      ? `<span class="badge rounded-pill" style="background:rgba(15,82,87,.1);color:var(--primary);"><i class="bi bi-geo-alt-fill"></i> ${label}</span>`
+    const spaceBadge = space
+      ? `<span class="badge rounded-pill" style="background:${space.color};color:#fff;"><i class="bi bi-geo-alt-fill"></i> ${space.name}</span>`
       : `<span class="badge rounded-pill" style="background:#f4e6e3;color:var(--accent);"><i class="bi bi-geo-alt"></i> Sin espacio</span>`;
     return `
       <div class="appt-card ${cls}" data-appt="${a.id}">
@@ -616,9 +626,10 @@ window.Agenda = (function () {
         const canSelect = compatible && !occupiedBy;
         const isSelected = pendingSpaceId === t.id;
         const color = isSelected ? "#1e6b45" : canSelect ? "#3a9a6d" : "#b7bbb2";
+        const name = `${typeLabel(t.type)}:${t.label}`;
         return `<div class="mini-map-table ${isSelected ? "current" : ""} ${!canSelect ? "incompatible" : ""}" data-id="${t.id}" data-can="${canSelect}"
           style="left:${t.x * MINI_CELL}px; top:${t.y * MINI_CELL}px; width:${t.w * MINI_CELL}px; height:${t.h * MINI_CELL}px; background:${color};"
-          title="${t.label}${occupiedBy ? " · Ocupado por " + occupiedBy.client_name : ""}">${t.label}</div>`;
+          title="${name}${occupiedBy ? " · Ocupado por " + occupiedBy.client_name : ""}">${name}</div>`;
       }).join("");
       map.querySelectorAll(".mini-map-table").forEach((el) => (el.onclick = () => {
         if (el.dataset.can !== "true") { toast("Ese espacio no está disponible.", false); return; }
