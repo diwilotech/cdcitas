@@ -43,6 +43,10 @@ window.FloorPlan = (function () {
   let editingSpaceTypeId = null;
 
   function typeLabel(key) { return spaceTypesCache.find((t) => t.key === key)?.label || key; }
+  // El color de la mesa en el plano sale del TIPO (no es un color propio por mesa) — así todas
+  // las mesas de un mismo tipo se ven igual, y cambiar el color de un tipo (pestaña Espacio →
+  // Tipos de espacio) repinta de una todas las mesas que lo usan.
+  function typeColor(key) { return spaceTypesCache.find((t) => t.key === key)?.color || "var(--primary)"; }
 
   async function render() {
     [spacesCache, spaceTypesCache] = await Promise.all([
@@ -183,7 +187,7 @@ window.FloorPlan = (function () {
     const spot = findFreeSpot(def.w, def.h);
     await api("/staff/spaces", { method: "POST", body: {
       label: nextLabel(), type: "general", shape: def.shape, capacity: def.capacity,
-      x: spot.x, y: spot.y, w: def.w, h: def.h, color: "#0f5257",
+      x: spot.x, y: spot.y, w: def.w, h: def.h,
     } });
     toast("Espacio agregado.");
     render();
@@ -195,11 +199,6 @@ window.FloorPlan = (function () {
     render();
   }
 
-  function pickSpaceColor(color) {
-    document.getElementById("editSpaceColor").value = color;
-    renderColorPicker(document.getElementById("editSpaceColorPicker"), color, pickSpaceColor);
-  }
-
   function openEditSpace(id) {
     if (!editMode) return;
     const t = spacesCache.find((t) => t.id === id);
@@ -208,16 +207,14 @@ window.FloorPlan = (function () {
     document.getElementById("editSpaceName").value = t.label;
     document.getElementById("editSpaceType").innerHTML = spaceTypesCache.map((st) => `<option value="${st.key}">${st.label}</option>`).join("");
     document.getElementById("editSpaceType").value = t.type;
-    pickSpaceColor(t.color || "#0f5257");
     editSpaceModal = editSpaceModal || new bootstrap.Modal(document.getElementById("editSpaceModal"));
     editSpaceModal.show();
   }
   document.getElementById("editSpaceSaveBtn").onclick = async () => {
     const name = document.getElementById("editSpaceName").value.trim();
     const type = document.getElementById("editSpaceType").value;
-    const color = document.getElementById("editSpaceColor").value;
     if (!name) return toast("Ponle un nombre.", false);
-    await api(`/staff/spaces/${editingId}`, { method: "PATCH", body: { label: name, type, color } });
+    await api(`/staff/spaces/${editingId}`, { method: "PATCH", body: { label: name, type } });
     editSpaceModal.hide();
     toast("Espacio actualizado.");
     render();
@@ -259,11 +256,11 @@ window.FloorPlan = (function () {
     sizeCanvas();
     grid.innerHTML = spacesCache.map((t) => `
       <div class="table-item ${editMode ? "" : "locked"} shape-${t.shape} status-${t.status}" data-id="${t.id}"
-        style="left:${t.x * CELL}px; top:${t.y * CELL}px; width:${t.w * CELL}px; height:${t.h * CELL}px; border-left-width:5px; border-left-color:${t.color || "var(--primary)"};">
+        style="left:${t.x * CELL}px; top:${t.y * CELL}px; width:${t.w * CELL}px; height:${t.h * CELL}px; border-left-width:5px; border-left-color:${typeColor(t.type)};">
         <button class="t-status-dot" title="Cambiar estado" data-status-id="${t.id}"></button>
         ${editMode ? `<button class="t-remove" title="Eliminar" data-remove-id="${t.id}">✕</button>` : ""}
         <span class="t-label">${t.label} ${editMode ? `<i class="bi bi-pencil-fill" role="button" data-edit-id="${t.id}"></i>` : ""}</span>
-        <span class="t-cap"><i class="bi bi-people-fill"></i> ${t.capacity} · <span class="t-type-badge">${typeLabel(t.type)}</span></span>
+        <span class="t-cap"><i class="bi bi-people-fill"></i> ${t.capacity} · <span class="t-type-badge" style="color:${typeColor(t.type)};">${typeLabel(t.type)}</span></span>
         ${miniScheduleHTML(t)}
         ${editMode ? `<div class="t-resize" data-resize-id="${t.id}"></div>` : ""}
       </div>`).join("");

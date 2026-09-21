@@ -4,7 +4,7 @@ import { json, error, readJson } from "../lib/http.js";
 
 const services = makeResource("services", ["name", "duration_min", "price", "cancel_window_hours", "reminder_hours", "allowed_space_types", "photo_key", "featured"]);
 const specialists = makeResource("specialists", ["name", "role", "avatar", "color", "work_days", "open_hour", "close_hour"]);
-const spaces = makeResource("spaces", ["label", "type", "shape", "capacity", "x", "y", "w", "h", "status", "color"]);
+const spaces = makeResource("spaces", ["label", "type", "shape", "capacity", "x", "y", "w", "h", "status"]);
 const clients = makeResource("clients", ["name", "email", "phone"]);
 const blocks = makeResource("blocks", ["specialist_id", "date", "start", "end", "reason"]);
 const spaceTypes = makeResource("space_types", ["key", "label", "description", "color"]);
