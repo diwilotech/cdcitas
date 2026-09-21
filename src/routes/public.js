@@ -71,7 +71,7 @@ export function registerPublic(router) {
 
   router.post("/api/:slug/public/book", async (request, env, ctx) => {
     const body = await readJson(request);
-    const { serviceId, specialistId, date, start, clientName, clientEmail, clientPhone } = body;
+    const { serviceId, specialistId, date, start, clientName, clientEmail, clientPhone, manageToken } = body;
     const channel = body.channel === "email" ? "email" : "whatsapp";
     if (!serviceId || !specialistId || !date || !start || !clientName) return error("Faltan datos de la reserva.");
     if (channel === "whatsapp" && !clientPhone) return error("Escribe tu celular para mandarte el código por WhatsApp.");
@@ -101,9 +101,15 @@ export function registerPublic(router) {
     const end = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
     const reminder = reminderDateTime(date, start, service.reminder_hours);
     const apptId = uid();
-    // Un cliente que ya confirmó una cita antes (por ese mismo celular) ya demostró que el número
-    // es real y suyo — no hace falta pedirle el PIN otra vez, la cita queda confirmada de una.
-    const skipConfirmation = channel === "whatsapp" && !!client.verified;
+    // Que el celular coincida con uno ya "verified" en la tabla NO basta para saltarse el PIN —
+    // cualquiera que se sepa el número de otra persona podría reservarle citas a su nombre sin que
+    // ella se entere. Solo se salta el PIN si además viene un manageToken válido: la prueba de que
+    // quien reserva ya entró antes a "mis citas" con el PIN de ESE número (hoy la reserva pública
+    // nunca manda uno — este atajo queda listo para cuando exista "reservar de nuevo" dentro de
+    // mis-citas). También evita que el servidor le escriba primero por WhatsApp a alguien que no
+    // inició la conversación (el mismo riesgo de baneo que ya se evitó en el resto del flujo).
+    const skipConfirmation = channel === "whatsapp" && !!client.verified
+      && !!manageToken && manageToken === client.manage_token;
     const status = skipConfirmation ? "confirmed" : "pending_confirmation";
     await run(env,
       `INSERT INTO appointments (id, business_id, client_id, client_name, client_email, client_phone,

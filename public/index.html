@@ -150,6 +150,16 @@ function updateConfirmBtnState() {
   document.getElementById("confirmBtn").disabled = !ok;
 }
 
+// Enmascara el nombre al mostrarlo en pantalla (ej. "Yomar" -> "Yom***") — solo para que la
+// persona reconozca que el registro es suyo, sin exponerle el nombre completo a cualquiera que
+// esté probando números de celular al azar. El nombre completo sí se manda tal cual al reservar.
+function maskName(name) {
+  const first = (name || "").trim().split(/\s+/)[0] || "";
+  if (!first) return "";
+  const visible = Math.max(1, Math.ceil(first.length / 2));
+  return first.slice(0, visible) + "***";
+}
+
 let phoneCheckTimer = null;
 function scheduleClientCheck() {
   clearTimeout(phoneCheckTimer);
@@ -169,7 +179,7 @@ function scheduleClientCheck() {
     if (found.found) {
       state.foundClient = found;
       hint.textContent = "";
-      document.getElementById("returningClientName").textContent = found.name;
+      document.getElementById("returningClientName").textContent = maskName(found.name);
       note.style.display = "flex";
       newFields.style.display = "none";
     } else {
