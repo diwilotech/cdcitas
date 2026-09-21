@@ -67,13 +67,14 @@ export function registerCard(router) {
   });
 
   // Histograma de actividad para "Links rastreables", desglosado por fuente (para barras
-  // apiladas) — 3 escalas, cada una a un zoom de tiempo distinto:
+  // apiladas) — 3 escalas, cada una a un zoom de tiempo distinto, en la hora local del negocio
+  // (business.timezone_offset, Ajustes → Locación):
   //   día    -> últimas 12 horas (por hora real de reloj, ej. "14h", no "hace 3h")
   //   semana -> últimos 12 días
   //   mes    -> últimas 12 semanas (lunes a lunes)
   router.get("/api/:slug/staff/card-timeseries", async (request, env, ctx) => {
     const requested = new URL(request.url).searchParams.get("granularity");
-    const { keys, sqlExpr, since, granularity } = bucketPlan(requested);
+    const { keys, sqlExpr, since, granularity } = bucketPlan(requested, ctx.business.timezone_offset ?? -5);
     const eventRows = await all(env,
       `SELECT ${sqlExpr} as bucket, COALESCE(source_code, '(sin fuente)') as source, event_type, COUNT(*) as n FROM card_events
        WHERE business_id=? AND created_at >= ? GROUP BY bucket, source, event_type`,
@@ -100,38 +101,51 @@ export function registerCard(router) {
 }
 
 // Genera las llaves de bucket (en JS) y la expresión SQL que debe producir la MISMA llave a
-// partir de created_at, para poder cruzarlas.
-function bucketPlan(granularity) {
+// partir de created_at, para poder cruzarlas. created_at se guarda en UTC (el Worker corre en
+// UTC), pero los buckets deben verse en la hora local del negocio (offsetHours, configurable en
+// Ajustes → Locación) — por eso cada expresión SQL lleva el modificador de hora `tzMod` aplicado
+// ANTES de extraer la hora/fecha, y el lado JS calcula sobre `localNow` (el reloj real corrido ese
+// mismo offset) para que ambos lados produzcan la misma llave.
+function bucketPlan(granularity, offsetHours) {
+  const offset = Number(offsetHours) || 0;
+  const shiftMs = offset * 3600000;
+  const tzMod = `${offset >= 0 ? "+" : ""}${offset} hours`;
+  const localNow = new Date(Date.now() + shiftMs);
+
   if (granularity === "month") {
     // Últimas 12 semanas (lunes a lunes) — mismo cálculo de "lunes de la semana" que abajo.
     const keys = [];
-    const monday = mondayOf(new Date());
+    const monday = mondayOf(localNow);
     for (let i = 11; i >= 0; i--) keys.push(isoDate(addDays(monday, -7 * i)));
-    return { keys, sqlExpr: WEEK_START_SQL, since: `${keys[0]} 00:00:00`, granularity: "month" };
+    const weekStartSql = `date(created_at, '${tzMod}', '-' || ((strftime('%w', created_at, '${tzMod}') + 6) % 7) || ' days')`;
+    return { keys, sqlExpr: weekStartSql, since: localMidnightToUtc(keys[0], shiftMs), granularity: "month" };
   }
   if (granularity === "week") {
     // Últimos 12 días, uno por día.
     const keys = [];
-    for (let i = 11; i >= 0; i--) keys.push(isoDate(addDays(new Date(), -i)));
-    return { keys, sqlExpr: `substr(created_at,1,10)`, since: `${keys[0]} 00:00:00`, granularity: "week" };
+    for (let i = 11; i >= 0; i--) keys.push(isoDate(addDays(localNow, -i)));
+    return { keys, sqlExpr: `date(created_at, '${tzMod}')`, since: localMidnightToUtc(keys[0], shiftMs), granularity: "week" };
   }
   // día: últimas 12 horas — ventana móvil que termina AHORA, pero cada bucket se identifica por
-  // su hora real de reloj (ej. "14"), no por "hace cuántas horas" — con solo 12 de las 24 horas
-  // posibles en la ventana, esa hora de reloj nunca se repite aunque la ventana cruce medianoche.
+  // su hora real de reloj local (ej. "14"), no por "hace cuántas horas" — con solo 12 de las 24
+  // horas posibles en la ventana, esa hora de reloj nunca se repite aunque la ventana cruce
+  // medianoche. La ventana (`since`) sí es un instante absoluto, no necesita offset.
   const keys = [];
-  const now = new Date();
-  for (let i = 11; i >= 0; i--) keys.push(String(new Date(now.getTime() - i * 3600000).getUTCHours()).padStart(2, "0"));
-  const since = new Date(now.getTime() - 12 * 3600000).toISOString().slice(0, 19).replace("T", " ");
-  return { keys, sqlExpr: `strftime('%H', created_at)`, since, granularity: "day" };
+  for (let i = 11; i >= 0; i--) keys.push(String(new Date(localNow.getTime() - i * 3600000).getUTCHours()).padStart(2, "0"));
+  const since = new Date(Date.now() - 12 * 3600000).toISOString().slice(0, 19).replace("T", " ");
+  return { keys, sqlExpr: `strftime('%H', created_at, '${tzMod}')`, since, granularity: "day" };
 }
-// Lunes de la semana de created_at — el idioma "weekday 1, -7 days" que se suele recomendar para
-// esto falla cuando created_at YA es lunes (se va a la semana anterior de más), por eso se calcula
-// a mano con strftime('%w') (0=domingo..6=sábado) en vez de confiar en ese modificador.
-const WEEK_START_SQL = `date(created_at, '-' || ((strftime('%w', created_at) + 6) % 7) || ' days')`;
 function addDays(d, n) { const c = new Date(d); c.setUTCDate(c.getUTCDate() + n); return c; }
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 function mondayOf(d) {
   const day = d.getUTCDay(); // 0=Dom..6=Sáb
   const diff = day === 0 ? 6 : day - 1;
   return addDays(d, -diff);
+}
+// Medianoche local (llave "YYYY-MM-DD") convertida al instante UTC real, para el filtro
+// `WHERE created_at >= ?` (created_at está en UTC) — hay que restar shiftMs porque local = UTC +
+// shiftMs, así que UTC = local - shiftMs.
+function localMidnightToUtc(dateKey, shiftMs) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - shiftMs).toISOString().slice(0, 19).replace("T", " ");
 }

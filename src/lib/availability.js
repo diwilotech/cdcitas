@@ -83,11 +83,10 @@ export async function availableSlots(env, business, { serviceId, specialistId, d
 
   // Si la fecha pedida es hoy, un horario que ya pasó tampoco cuenta como disponible — sin esto,
   // se podía reservar (y el cliente veía como libre) un horario de esta misma mañana ya pasado.
-  // Las fechas/horas de toda la app son hora local del negocio, sin huso guardado en ningún
-  // lado — se asume Colombia (UTC-5, sin horario de verano) para poder comparar "ahora" contra
-  // esa misma grilla; el Worker corre en UTC, así que hay que restar el offset primero.
-  const BUSINESS_UTC_OFFSET_HOURS = -5;
-  const localNow = new Date(Date.now() + BUSINESS_UTC_OFFSET_HOURS * 3600000);
+  // Las fechas/horas de toda la app son hora local del negocio (business.timezone_offset,
+  // configurable en Ajustes → Locación, por defecto Colombia UTC-5); el Worker corre en UTC, así
+  // que hay que sumar el offset primero para comparar "ahora" contra esa misma grilla.
+  const localNow = new Date(Date.now() + (business.timezone_offset ?? -5) * 3600000);
   const nowMin = localNow.getUTCHours() * 60 + localNow.getUTCMinutes();
   const isToday = date === localNow.toISOString().slice(0, 10);
 

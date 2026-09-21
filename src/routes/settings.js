@@ -11,6 +11,7 @@ export function registerSettings(router) {
     const b = await readJson(request);
     const fields = { name: b.name, open_hour: b.openHour, close_hour: b.closeHour,
       open_days: b.openDays ? JSON.stringify(b.openDays) : undefined,
+      timezone_offset: b.timezoneOffset === undefined ? undefined : Number(b.timezoneOffset),
       evolution_url: b.evolutionUrl, evolution_instance: b.evolutionInstance, evolution_api_key: b.evolutionApiKey,
       whatsapp_country_code: b.whatsappCountryCode,
       whatsapp_business_number: b.whatsappBusinessNumber,

@@ -95,6 +95,7 @@ window.AdminShell = (function () {
   async function loadAjustes() {
     const biz = await api("/staff/settings").catch(() => null);
     if (!biz) return;
+    document.getElementById("setTimezoneOffset").value = String(biz.timezone_offset ?? -5);
     document.getElementById("setWhatsappEnabled").checked = !!biz.whatsapp_enabled;
     document.getElementById("setEvoUrl").value = biz.evolution_url || "";
     document.getElementById("setEvoInstance").value = biz.evolution_instance || "";
@@ -111,6 +112,7 @@ window.AdminShell = (function () {
   document.getElementById("saveWhatsappBtn").onclick = async () => {
     const countryCode = document.getElementById("setWhatsappCountryCode").value.trim().replace(/\D/g, "") || "57";
     await api("/staff/settings", { method: "PATCH", body: {
+      timezoneOffset: parseInt(document.getElementById("setTimezoneOffset").value, 10),
       whatsappEnabled: document.getElementById("setWhatsappEnabled").checked,
       evolutionUrl: document.getElementById("setEvoUrl").value.trim(),
       evolutionInstance: document.getElementById("setEvoInstance").value.trim(),
@@ -121,7 +123,7 @@ window.AdminShell = (function () {
     } });
     document.getElementById("setWhatsappCountryCode").value = countryCode;
     document.getElementById("testWhatsappPrefix").textContent = `+${countryCode}`;
-    toast("WhatsApp guardado.");
+    toast("Locación guardada.");
   };
 
   document.getElementById("testWhatsappBtn").onclick = async () => {

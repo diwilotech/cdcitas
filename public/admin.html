@@ -329,6 +329,14 @@
     <!-- ============ AJUSTES ============ -->
     <section id="view-ajustes" class="view" style="display:none;">
       <div class="card-panel p-4">
+        <h2 class="h6 fw-bold display-font mb-3"><i class="bi bi-geo-alt"></i> Locación</h2>
+        <label class="label-xs d-block mb-1">Zona horaria del negocio (para que la agenda, los recordatorios y las gráficas usen la hora correcta)</label>
+        <select class="form-select mb-4" id="setTimezoneOffset" style="max-width:360px;">
+          <option value="-6">México, Centroamérica (UTC-6)</option>
+          <option value="-5">Colombia, Ecuador, Perú, Panamá (UTC-5)</option>
+          <option value="-4">Bolivia, Venezuela, Rep. Dominicana (UTC-4)</option>
+          <option value="-3">Argentina, Chile, Uruguay (UTC-3)</option>
+        </select>
         <div class="form-check form-switch mb-3">
           <input class="form-check-input" type="checkbox" id="setWhatsappEnabled">
           <label class="form-check-label" for="setWhatsappEnabled">Enviar avisos de citas por WhatsApp</label>
