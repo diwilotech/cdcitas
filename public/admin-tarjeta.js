@@ -64,7 +64,34 @@ window.Tarjeta = (function () {
     await renderAnalytics();
   }
 
-  document.getElementById("cardGoAjustesLink").onclick = () => document.querySelector('[data-view="ajustes"]').click();
+  /* ---------- Logo (clic para cambiarlo) ---------- */
+  // Se ve como círculo en la tarjeta — se recorta cuadrado (aspectRatio 1) igual que antes en
+  // Ajustes, pero acá se sube de una vez, sin un botón "Guardar" aparte, para que se sienta como
+  // parte de la tarjeta y no como un formulario.
+  async function pickAndUploadLogo() {
+    const input = document.getElementById("cardLogoFile");
+    input.value = "";
+    input.click();
+  }
+  document.getElementById("cardLogoPreview").onclick = pickAndUploadLogo;
+  document.getElementById("cardLogoEditBtn").onclick = pickAndUploadLogo;
+  document.getElementById("cardLogoFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const blob = await window.ImgCropper.open(file, { aspectRatio: 1 });
+    if (!blob) return;
+    try {
+      const fd = new FormData();
+      fd.append("file", blob, "logo.png");
+      const res = await fetch(`/api/${tenantSlug()}/staff/upload`, { method: "POST", credentials: "include", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "No se pudo subir la imagen.");
+      await api("/staff/settings", { method: "PATCH", body: { logoKey: data.name } });
+      currentBusiness.logo_key = data.name;
+      document.getElementById("cardLogoPreview").innerHTML = `<img src="/api/${tenantSlug()}/public/files/${data.name}" style="width:100%;height:100%;object-fit:cover;">`;
+      toast("Logo guardado.");
+    } catch (e) { toast(e.message, false); }
+  });
 
   function hoursText(openDays, openHour, closeHour) {
     const dows = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];

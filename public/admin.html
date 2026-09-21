@@ -198,11 +198,17 @@
 
         <div class="mx-auto" style="max-width:400px;">
           <div class="text-center mb-3">
-            <div class="mx-auto mb-2" id="cardLogoPreview" style="width:72px;height:72px;border-radius:50%;overflow:hidden;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.6rem;">
-              <i class="bi bi-calendar2-heart"></i>
+            <div class="position-relative mx-auto mb-2" style="width:72px;height:72px;">
+              <div id="cardLogoPreview" style="width:72px;height:72px;border-radius:50%;overflow:hidden;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.6rem;cursor:pointer;">
+                <i class="bi bi-calendar2-heart"></i>
+              </div>
+              <button type="button" class="position-absolute d-flex align-items-center justify-content-center" id="cardLogoEditBtn" title="Cambiar logo"
+                style="bottom:-2px;right:-2px;width:26px;height:26px;border-radius:50%;background:#fff;border:1px solid var(--line);padding:0;">
+                <i class="bi bi-camera-fill" style="font-size:.7rem;color:var(--ink);"></i>
+              </button>
+              <input type="file" accept="image/*" id="cardLogoFile" class="d-none">
             </div>
             <div class="fw-bold display-font" id="cardNamePreview"></div>
-            <button type="button" class="btn btn-link btn-sm text-muted p-0" id="cardGoAjustesLink">Logo y nombre se cambian en Ajustes</button>
 
             <div id="cardBioDisplay" class="text-muted small mt-2" style="cursor:pointer;min-height:1.2em;"></div>
             <div id="cardBioEditor" style="display:none;" class="mt-2 text-start">
@@ -316,19 +322,6 @@
 
     <!-- ============ AJUSTES ============ -->
     <section id="view-ajustes" class="view" style="display:none;">
-      <div class="card-panel p-4 mb-3">
-        <h2 class="h6 fw-bold display-font mb-3">Logo del negocio</h2>
-        <p class="text-muted small mb-3">Se ve en la página de reserva y en "mis citas" — si no subes uno, se queda el ícono de siempre.</p>
-        <div class="d-flex align-items-center gap-3 mb-2">
-          <img id="setLogoPreview" style="display:none;width:56px;height:56px;object-fit:cover;border-radius:12px;">
-          <input type="file" accept="image/*" id="setLogoFile" class="form-control">
-        </div>
-        <div class="d-flex gap-2">
-          <button class="btn btn-outline-dark btn-sm" id="setLogoRecropBtn" style="display:none;"><i class="bi bi-crop"></i> Recortar de nuevo</button>
-          <button class="btn btn-brand btn-sm" id="saveLogoBtn">Guardar logo</button>
-        </div>
-      </div>
-
       <div class="card-panel p-4">
         <div class="form-check form-switch mb-3">
           <input class="form-check-input" type="checkbox" id="setWhatsappEnabled">
