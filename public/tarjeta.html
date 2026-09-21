@@ -85,8 +85,18 @@ async function init() {
     bio.style.display = "block";
   }
 
+  // La fuente (?src=) viaja hasta la página de reserva y de ahí hasta la cita ya creada — así el
+  // panel puede saber cuántas visitas de cada fuente terminaron en una cita real, no solo un
+  // click (ver GET /staff/card-analytics).
+  function bookingUrl(extra) {
+    const params = new URLSearchParams(extra || {});
+    if (sourceCode) params.set("src", sourceCode);
+    const qs = params.toString();
+    return `/${tenantSlug()}${qs ? "?" + qs : ""}`;
+  }
+
   const bookBtn = document.getElementById("bookBtn");
-  bookBtn.href = `/${tenantSlug()}`;
+  bookBtn.href = bookingUrl();
   bookBtn.onclick = () => track("click", "reservar");
 
   document.getElementById("infoCard").style.display = "block";
@@ -114,13 +124,13 @@ async function init() {
             <div class="fw-semibold small">${s.name}</div>
             <div class="text-muted small">${s.duration_min} min · $${s.price}</div>
           </div>
-          <a class="btn btn-sm btn-outline-dark flex-shrink-0" data-see-service="${s.name}" href="/${tenantSlug()}?service=${s.id}">Ver</a>
+          <a class="btn btn-sm btn-outline-dark flex-shrink-0" data-see-service="${s.name}" href="${bookingUrl({ service: s.id })}">Ver</a>
         </div>`;
     }).join("");
     document.querySelectorAll("[data-see-service]").forEach((el) => (el.onclick = () => track("click", `servicio: ${el.dataset.seeService}`)));
   }
   const seeMoreBtn = document.getElementById("seeMoreServicesBtn");
-  seeMoreBtn.href = `/${tenantSlug()}`;
+  seeMoreBtn.href = bookingUrl();
   seeMoreBtn.onclick = () => track("click", "ver-mas-servicios");
 
   document.getElementById("linksList").innerHTML = card.links.map((l) => `

@@ -76,7 +76,7 @@ export function registerPublic(router) {
 
   router.post("/api/:slug/public/book", async (request, env, ctx) => {
     const body = await readJson(request);
-    const { serviceId, specialistId, date, start, clientName, clientEmail, clientPhone, manageToken } = body;
+    const { serviceId, specialistId, date, start, clientName, clientEmail, clientPhone, manageToken, sourceCode } = body;
     const channel = body.channel === "email" ? "email" : "whatsapp";
     if (!serviceId || !specialistId || !date || !start || !clientName) return error("Faltan datos de la reserva.");
     if (channel === "whatsapp" && !clientPhone) return error("Escribe tu celular para mandarte el código por WhatsApp.");
@@ -118,10 +118,10 @@ export function registerPublic(router) {
     const status = skipConfirmation ? "confirmed" : "pending_confirmation";
     await run(env,
       `INSERT INTO appointments (id, business_id, client_id, client_name, client_email, client_phone,
-        specialist_id, service_id, date, start, end, status, confirm_channel, confirmation_date, confirmation_time)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        specialist_id, service_id, date, start, end, status, confirm_channel, confirmation_date, confirmation_time, source_code)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       apptId, ctx.business.id, client.id, clientName, clientEmail || null, clientPhone || null,
-      specialistId, serviceId, date, start, end, status, channel, reminder.date, reminder.time);
+      specialistId, serviceId, date, start, end, status, channel, reminder.date, reminder.time, sourceCode || null);
 
     const appt = await first(env, `SELECT * FROM appointments WHERE id=?`, apptId);
     const origin = new URL(request.url).origin;

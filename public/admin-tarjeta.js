@@ -311,21 +311,74 @@ window.Tarjeta = (function () {
 
   /* ---------- Analítica ---------- */
   async function renderAnalytics() {
-    const wrap = document.getElementById("cardAnalyticsTable");
     const data = await api("/staff/card-analytics?days=30").catch(() => null);
+    renderFunnel(data);
+    renderSourceChart(data);
+  }
+
+  // Embudo: vistas de la tarjeta -> clicks en "Reservar" -> citas realmente agendadas (con
+  // cualquier fuente, ver src/routes/card.js). Cada barra se compara contra las vistas (el tope),
+  // y se muestra qué % pasó del escalón anterior al siguiente.
+  function renderFunnel(data) {
+    const wrap = document.getElementById("cardFunnel");
+    if (!data) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin datos todavía.</p>`; return; }
+    const stages = [
+      { label: "Vistas de la tarjeta", value: data.funnel.views, color: "#0f5257" },
+      { label: 'Clicks en "Reservar"', value: data.funnel.reservarClicks, color: "#3a6bc7" },
+      { label: "Citas agendadas", value: data.funnel.bookings, color: "#1e6b45" },
+    ];
+    if (!stages[0].value) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin visitas todavía en los últimos 30 días.</p>`; return; }
+    const max = stages[0].value;
+    wrap.innerHTML = stages.map((s, i) => {
+      const pct = Math.max(Math.round((s.value / max) * 100), s.value > 0 ? 3 : 0);
+      const fromPrev = i > 0 && stages[i - 1].value > 0 ? Math.round((s.value / stages[i - 1].value) * 100) : null;
+      return `
+        <div class="mb-3">
+          <div class="d-flex justify-content-between small mb-1">
+            <span class="fw-semibold">${s.label}</span>
+            <span class="text-muted">${s.value}${fromPrev !== null ? ` · ${fromPrev}% del paso anterior` : ""}</span>
+          </div>
+          <div style="background:#f0eee6;border-radius:8px;height:24px;overflow:hidden;">
+            <div style="width:${pct}%;background:${s.color};height:100%;"></div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  // Gráfico por fuente (barras Vistas/Clicks/Reservas), qué botones tocaron, y quién agendó desde
+  // cada fuente (nombre + celular) para poder identificar de verdad quién llegó por dónde.
+  function renderSourceChart(data) {
+    const wrap = document.getElementById("cardAnalyticsTable");
     if (!data || !data.bySource.length) { wrap.innerHTML = `<p class="text-muted small mb-0">Sin visitas todavía en los últimos 30 días.</p>`; return; }
+    const max = Math.max(...data.bySource.flatMap((s) => [s.views, s.clicks, s.bookings]), 1);
+    const bar = (label, value, color) => `
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="text-muted" style="font-size:.65rem;width:54px;flex-shrink:0;">${label}</span>
+        <div class="progress flex-grow-1" style="height:6px;border-radius:4px;"><div class="progress-bar" style="width:${(value / max) * 100}%;background:${color};"></div></div>
+        <span class="text-muted" style="font-size:.65rem;width:22px;text-align:right;flex-shrink:0;">${value}</span>
+      </div>`;
     wrap.innerHTML = `
-      <div class="table-responsive">
-        <table class="table table-sm">
-          <thead><tr><th>Fuente</th><th class="text-end">Vistas</th><th class="text-end">Clicks</th></tr></thead>
-          <tbody>
-            ${data.bySource.map((s) => `<tr><td>${s.source}</td><td class="text-end">${s.views}</td><td class="text-end">${s.clicks}</td></tr>`).join("")}
-          </tbody>
-        </table>
+      <div class="d-flex flex-column gap-3 mb-3">
+        ${data.bySource.map((s) => `
+          <div>
+            <div class="fw-semibold small mb-1">${s.source}</div>
+            ${bar("Vistas", s.views, "#0f5257")}
+            ${bar("Clicks", s.clicks, "#3a6bc7")}
+            ${bar("Reservas", s.bookings, "#1e6b45")}
+          </div>`).join("")}
       </div>
-      ${data.clickTargets.length ? `<p class="label-xs mb-2 mt-2">Qué tocaron</p>
-        <div class="d-flex flex-wrap gap-2">
+      ${data.clickTargets.length ? `<p class="label-xs mb-2">Qué tocaron</p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
           ${data.clickTargets.map((t) => `<span class="badge rounded-pill" style="background:#f0eee6;color:var(--ink);font-size:.75rem;padding:.4rem .7rem;">${t.target}: ${t.n}</span>`).join("")}
+        </div>` : ""}
+      ${data.recentBookings.length ? `<p class="label-xs mb-2">Quién agendó (últimas ${data.recentBookings.length})</p>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead><tr><th>Fuente</th><th>Cliente</th><th>Celular</th><th>Cita</th></tr></thead>
+            <tbody>
+              ${data.recentBookings.map((b) => `<tr><td>${b.source}</td><td>${b.clientName}</td><td>${b.clientPhone || "—"}</td><td>${b.date} ${b.start}</td></tr>`).join("")}
+            </tbody>
+          </table>
         </div>` : ""}`;
   }
 

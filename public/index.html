@@ -145,6 +145,10 @@ const SERVICE_THEMES = [
 let business = null;
 let bookingModal = null;
 let phoneCheckTimer = null;
+// Si llegan desde la tarjeta digital con ?src=<fuente>, se manda tal cual con la reserva — así el
+// panel puede ver cuántas citas reales salieron de cada fuente, no solo cuántas vistas/clicks
+// tuvo la tarjeta (ver GET /staff/card-analytics).
+const sourceCode = new URLSearchParams(location.search).get("src") || null;
 let checkSeq = 0; // se incrementa en cada tecla/apertura de modal, para descartar respuestas viejas que lleguen tarde
 // El celular es el dato que se pide primero — con él se revisa si la persona ya está
 // registrada (foundClient) para no volver a pedirle nombre/correo ni el PIN por WhatsApp.
@@ -442,6 +446,7 @@ async function confirmBooking() {
       clientEmail,
       clientPhone,
       channel: "whatsapp",
+      sourceCode,
     }});
     bookingModal.hide();
     document.getElementById("bookingFlow").style.display = "none";
