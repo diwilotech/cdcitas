@@ -78,11 +78,14 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 /* Histograma de actividad de cada fuente (Links rastreables → Día/Semana/Mes): una gráfica de
    ancho completo por fuente, cada barra apilada por MÉTRICA (vista/click/reserva). Los buckets
    se reparten el ancho disponible en partes iguales (flex:1) en vez de scroll horizontal. */
+.ts-chart-wrap{ position:relative; }
+.ts-trend{ position:absolute; left:0; top:0; width:100%; height:60px; pointer-events:none; overflow:visible; }
 .ts-chart-full{ display:flex; align-items:flex-end; gap:3px; width:100%; }
 .ts-bucket-full{ display:flex; flex-direction:column; align-items:center; gap:.25rem; flex:1 1 0; min-width:0; }
 .ts-bar-stack-full{ display:flex; flex-direction:column-reverse; width:100%; max-width:22px; height:60px; background:#f0eee6; border-radius:2px 2px 0 0; overflow:hidden; }
 .ts-label{ font-size:.58rem; color:var(--muted); white-space:nowrap; }
 .ts-legend-dot{ display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:.3rem; }
+.ts-legend-line{ display:inline-block; width:12px; height:2px; margin-right:.3rem; vertical-align:middle; }
 
 /* Selector de color compartido (especialistas, espacios) — ver renderColorPicker en app.js */
 .color-swatch{ width:32px; height:32px; border-radius:50%; border:2px solid transparent; padding:0; cursor:pointer; flex-shrink:0; box-shadow:inset 0 0 0 2px rgba(255,255,255,.6); }

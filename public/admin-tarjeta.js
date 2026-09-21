@@ -281,23 +281,37 @@ window.Tarjeta = (function () {
     return `${parts[2]}/${parts[1]}`; // mes: fecha en que empieza esa semana
   }
 
+  const TREND_COLOR = "#e0a339"; // --amber, se distingue bien de los 3 colores de métrica
+
+  // La línea de tendencia sigue las VISITAS (no el total apilado) — queda justo en el borde de
+  // arriba del segmento de vistas de cada barra (que va abajo del todo en el stack), así se ve de
+  // una si las visitas van subiendo o bajando en el período elegido.
   function sourceChartHTML(buckets, sourceCode, granularity) {
-    const totals = buckets.map((b) => {
-      const s = b.bySource[sourceCode] || {};
-      return (s.views || 0) + (s.clicks || 0) + (s.bookings || 0);
-    });
+    const perBucket = buckets.map((b) => b.bySource[sourceCode] || { views: 0, clicks: 0, bookings: 0 });
+    const totals = perBucket.map((s) => (s.views || 0) + (s.clicks || 0) + (s.bookings || 0));
     const max = Math.max(...totals, 1);
-    return `<div class="ts-chart-full">
-      ${buckets.map((b) => {
-        const s = b.bySource[sourceCode] || { views: 0, clicks: 0, bookings: 0 };
-        return `
-        <div class="ts-bucket-full" title="Vistas: ${s.views} · Clicks: ${s.clicks} · Reservas: ${s.bookings}">
-          <div class="ts-bar-stack-full">
-            ${["views", "clicks", "bookings"].map((k) => s[k] ? `<div style="height:${Math.max((s[k] / max) * 100, 3)}%;background:${METRIC_COLORS[k]};"></div>` : "").join("")}
-          </div>
-          <span class="ts-label">${bucketLabel(b.bucket, granularity)}</span>
-        </div>`;
-      }).join("")}
+    const n = buckets.length;
+    const points = perBucket.map((s, i) => {
+      const x = ((i + 0.5) / n) * 100;
+      const y = 100 - Math.min(((s.views || 0) / max) * 100, 100);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(" ");
+    return `<div class="ts-chart-wrap">
+      <svg class="ts-trend" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <polyline points="${points}" fill="none" stroke="${TREND_COLOR}" stroke-width="2.5" vector-effect="non-scaling-stroke" />
+      </svg>
+      <div class="ts-chart-full">
+        ${buckets.map((b, i) => {
+          const s = perBucket[i];
+          return `
+          <div class="ts-bucket-full" title="Vistas: ${s.views} · Clicks: ${s.clicks} · Reservas: ${s.bookings}">
+            <div class="ts-bar-stack-full">
+              ${["views", "clicks", "bookings"].map((k) => s[k] ? `<div style="height:${Math.max((s[k] / max) * 100, 3)}%;background:${METRIC_COLORS[k]};"></div>` : "").join("")}
+            </div>
+            <span class="ts-label">${bucketLabel(b.bucket, granularity)}</span>
+          </div>`;
+        }).join("")}
+      </div>
     </div>`;
   }
 
@@ -340,10 +354,11 @@ window.Tarjeta = (function () {
 
     const wrap = document.getElementById("cardSourcesList");
     wrap.innerHTML = blocks.length ? `
-      <div class="d-flex gap-3 mb-3">
+      <div class="d-flex flex-wrap gap-3 mb-3">
         <span class="small text-muted"><span class="ts-legend-dot" style="background:${METRIC_COLORS.views};"></span>Vistas</span>
         <span class="small text-muted"><span class="ts-legend-dot" style="background:${METRIC_COLORS.clicks};"></span>Clicks</span>
         <span class="small text-muted"><span class="ts-legend-dot" style="background:${METRIC_COLORS.bookings};"></span>Reservas</span>
+        <span class="small text-muted"><span class="ts-legend-line" style="background:${TREND_COLOR};"></span>Tendencia de vistas</span>
       </div>
       ${blocks.join("")}` : `<p class="text-muted small mb-0">Sin fuentes todavía — crea la primera arriba.</p>`;
 
