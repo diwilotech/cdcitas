@@ -35,7 +35,10 @@ window.Tarjeta = (function () {
   let cardLinksCache = [];
   let editCardLinkModal = null;
   let editingCardLinkId = null;
+  let currentBusiness = null;
 
+  // La tarjeta se edita mostrándose a sí misma (no un formulario aparte) — se pinta igual que
+  // tarjeta.html y cada pieza (bio, dirección, destacados, links) se edita tocándola ahí mismo.
   async function render() {
     const url = `${location.origin}/${tenantSlug()}/tarjeta`;
     document.getElementById("cardPreviewLink").href = url;
@@ -43,39 +46,112 @@ window.Tarjeta = (function () {
     fillPlatformSelect(document.getElementById("editCardLinkPlatform"));
     fillPlatformSelect(document.getElementById("newCardSourcePlatform"));
 
-    const business = await api("/staff/settings").catch(() => null);
-    if (business) {
-      document.getElementById("cardBioInput").value = business.card_bio || "";
-      document.getElementById("cardAddressInput").value = business.card_address || "";
+    currentBusiness = await api("/staff/settings").catch(() => null);
+    if (currentBusiness) {
+      document.getElementById("cardNamePreview").textContent = currentBusiness.name;
+      if (currentBusiness.logo_key) {
+        document.getElementById("cardLogoPreview").innerHTML = `<img src="/api/${tenantSlug()}/public/files/${currentBusiness.logo_key}" style="width:100%;height:100%;object-fit:cover;">`;
+      }
+      renderBioDisplay(currentBusiness.card_bio);
+      renderAddressDisplay(currentBusiness.card_address);
+      document.getElementById("cardHoursPreview").textContent = hoursText(
+        JSON.parse(currentBusiness.open_days || "[1,2,3,4,5,6]"), currentBusiness.open_hour, currentBusiness.close_hour);
     }
 
     await renderCardLinks();
+    await renderFeaturedPicker();
     await renderCardSources();
     await renderAnalytics();
   }
 
-  document.getElementById("cardContentSaveBtn").onclick = async () => {
+  document.getElementById("cardGoAjustesLink").onclick = () => document.querySelector('[data-view="ajustes"]').click();
+
+  function hoursText(openDays, openHour, closeHour) {
+    const dows = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const to12h = (h) => { const ap = h >= 12 ? "PM" : "AM"; let h12 = h % 12; if (h12 === 0) h12 = 12; return `${h12}${ap}`; };
+    const sorted = [...openDays].sort();
+    const days = sorted.length === 7 ? "Todos los días" : sorted.map((d) => dows[d]).join(", ");
+    return `${days} · ${to12h(openHour)} - ${to12h(closeHour)}`;
+  }
+
+  /* ---------- Bio (clic para editar) ---------- */
+  function renderBioDisplay(bio) {
+    const display = document.getElementById("cardBioDisplay");
+    display.textContent = bio || "Toca para escribir una bio corta";
+    display.classList.toggle("fst-italic", !bio);
+  }
+  document.getElementById("cardBioDisplay").onclick = () => {
+    document.getElementById("cardBioInput").value = currentBusiness.card_bio || "";
+    document.getElementById("cardBioDisplay").style.display = "none";
+    document.getElementById("cardBioEditor").style.display = "block";
+    document.getElementById("cardBioInput").focus();
+  };
+  document.getElementById("cardBioCancelBtn").onclick = () => {
+    document.getElementById("cardBioEditor").style.display = "none";
+    document.getElementById("cardBioDisplay").style.display = "block";
+  };
+  document.getElementById("cardBioSaveBtn").onclick = async () => {
+    const value = document.getElementById("cardBioInput").value.trim() || null;
     try {
-      await api("/staff/settings", { method: "PATCH", body: {
-        cardBio: document.getElementById("cardBioInput").value.trim() || null,
-        cardAddress: document.getElementById("cardAddressInput").value.trim() || null,
-      } });
-      toast("Guardado.");
+      await api("/staff/settings", { method: "PATCH", body: { cardBio: value } });
+      currentBusiness.card_bio = value;
+      renderBioDisplay(value);
+      document.getElementById("cardBioEditor").style.display = "none";
+      document.getElementById("cardBioDisplay").style.display = "block";
     } catch (e) { toast(e.message, false); }
   };
+
+  /* ---------- Dirección (clic para editar) ---------- */
+  function renderAddressDisplay(address) {
+    document.getElementById("cardAddressText").textContent = address || "Toca para poner la dirección";
+  }
+  document.getElementById("cardAddressDisplay").onclick = () => {
+    document.getElementById("cardAddressInput").value = currentBusiness.card_address || "";
+    document.getElementById("cardAddressDisplay").style.display = "none";
+    document.getElementById("cardAddressEditor").style.display = "block";
+    document.getElementById("cardAddressInput").focus();
+  };
+  document.getElementById("cardAddressCancelBtn").onclick = () => {
+    document.getElementById("cardAddressEditor").style.display = "none";
+    document.getElementById("cardAddressDisplay").style.display = "flex";
+  };
+  document.getElementById("cardAddressSaveBtn").onclick = async () => {
+    const value = document.getElementById("cardAddressInput").value.trim() || null;
+    try {
+      await api("/staff/settings", { method: "PATCH", body: { cardAddress: value } });
+      currentBusiness.card_address = value;
+      renderAddressDisplay(value);
+      document.getElementById("cardAddressEditor").style.display = "none";
+      document.getElementById("cardAddressDisplay").style.display = "flex";
+    } catch (e) { toast(e.message, false); }
+  };
+
+  /* ---------- Servicios destacados (clic para marcar/quitar) ---------- */
+  async function renderFeaturedPicker() {
+    const services = await api("/staff/services").catch(() => []);
+    const wrap = document.getElementById("cardFeaturedPicker");
+    wrap.innerHTML = services.length ? services.map((s) => `
+      <button type="button" class="chip ${s.featured ? "active" : ""}" data-toggle-featured="${s.id}">
+        <i class="bi ${s.featured ? "bi-star-fill" : "bi-star"}"></i> ${s.name}
+      </button>`).join("") : `<p class="text-muted small mb-0">Crea servicios en Reglas primero.</p>`;
+    wrap.querySelectorAll("[data-toggle-featured]").forEach((el) => (el.onclick = async () => {
+      const svc = services.find((s) => s.id === el.dataset.toggleFeatured);
+      try {
+        await api(`/staff/services/${svc.id}`, { method: "PATCH", body: { featured: !svc.featured } });
+        renderFeaturedPicker();
+      } catch (e) { toast(e.message, false); }
+    }));
+  }
 
   /* ---------- Links ---------- */
   async function renderCardLinks() {
     cardLinksCache = await api("/staff/card-links").catch(() => []);
     const wrap = document.getElementById("cardLinksList");
     wrap.innerHTML = cardLinksCache.length ? cardLinksCache.map((l) => `
-      <div class="d-flex justify-content-between align-items-center border-top py-2">
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi ${l.icon || "bi-link-45deg"}"></i>
-          <div>
-            <div class="fw-semibold small">${l.label}</div>
-            <div class="text-muted small">${l.url}</div>
-          </div>
+      <div class="d-flex justify-content-between align-items-center gap-2 p-2" style="border:1px solid var(--line);border-radius:10px;">
+        <div class="d-flex align-items-center gap-2" style="min-width:0;">
+          <i class="bi ${l.icon || "bi-link-45deg"}" style="color:var(--primary);"></i>
+          <span class="fw-semibold small text-truncate">${l.label}</span>
         </div>
         <button class="btn btn-sm btn-outline-dark flex-shrink-0" data-edit-link="${l.id}"><i class="bi bi-pencil"></i></button>
       </div>`).join("") : `<p class="text-muted small mb-0">Sin links todavía.</p>`;
