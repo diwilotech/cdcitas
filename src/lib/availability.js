@@ -1,16 +1,32 @@
-import { all, first } from "./db.js";
+import { all, first, run, uid } from "./db.js";
 
 const toMin = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
 const toHHMM = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 
-// Fecha/hora por defecto para el recordatorio de una cita: reminderHours antes de que empiece.
-// La usan tanto la reserva pública como la creación manual, para no repetir esta cuenta dos veces.
-export function reminderDateTime(date, start, reminderHours) {
+// Fecha/hora en la que debe dispararse un recordatorio, minutesBefore minutos antes de que
+// empiece la cita — en minutos (no horas) para poder representar avisos cortos como "15 min antes".
+export function reminderDateTimeMinutes(date, start, minutesBefore) {
   const dt = new Date(`${date}T${start}:00`);
-  dt.setHours(dt.getHours() - reminderHours);
+  dt.setMinutes(dt.getMinutes() - minutesBefore);
   const y = dt.getFullYear(), m = String(dt.getMonth() + 1).padStart(2, "0"), d = String(dt.getDate()).padStart(2, "0");
   const hh = String(dt.getHours()).padStart(2, "0"), mm = String(dt.getMinutes()).padStart(2, "0");
   return { date: `${y}-${m}-${d}`, time: `${hh}:${mm}` };
+}
+
+// Crea en appointment_reminders un recordatorio por cada aviso configurado en el servicio
+// (reminder_hours siempre que sea > 0; reminder_2_minutes si el negocio activó un segundo aviso,
+// ej. "15 min antes") — reusada tanto por la reserva pública como por la creación manual de citas
+// de staff, para no repetir esta lógica dos veces.
+export async function scheduleServiceReminders(env, businessId, apptId, service, date, start) {
+  const offsetsMin = [];
+  if (service.reminder_hours) offsetsMin.push(service.reminder_hours * 60);
+  if (service.reminder_2_minutes) offsetsMin.push(service.reminder_2_minutes);
+  for (const minutesBefore of offsetsMin) {
+    const r = reminderDateTimeMinutes(date, start, minutesBefore);
+    await run(env,
+      `INSERT INTO appointment_reminders (id, appointment_id, business_id, remind_date, remind_time, source) VALUES (?,?,?,?,?,'service')`,
+      uid(), apptId, businessId, r.date, r.time);
+  }
 }
 
 // Horario efectivo de un día para el negocio o para un especialista puntual. Prioridad:

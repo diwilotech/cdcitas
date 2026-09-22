@@ -1,35 +1,43 @@
-import { all, first } from "./db.js";
+import { all, first, run } from "./db.js";
 import { sendApptMessage } from "./messages.js";
 
-// Corre cada 15 min (ver wrangler.toml). Busca, en todos los negocios, citas confirmadas cuyo
-// recordatorio ya venció (dentro de una ventana de 20 min, para no perder ninguna ni reenviar) y
-// que todavía no tengan un mensaje "reminder" registrado (evita duplicados si el cron se solapa).
+// Corre cada 15 min (ver wrangler.toml). Busca recordatorios (appointment_reminders) de citas
+// confirmadas cuya hora ya venció (ventana de 20 min hacia atrás, para no perder ninguno ni
+// reenviar si el cron se solapa) y que todavía no se hayan mandado. remind_date/remind_time están
+// en hora LOCAL del negocio (igual que appointments.date/start) — como el cron recorre negocios
+// con husos distintos, "ahora" se calcula por negocio con su propio business.timezone_offset
+// (Ajustes → Locación) en vez de una sola hora global.
 export async function sendDueReminders(env) {
-  const now = new Date();
-  const windowStart = new Date(now.getTime() - 20 * 60 * 1000);
-  const todayIso = now.toISOString().slice(0, 10);
-  const nowHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const windowStartIso = windowStart.toISOString().slice(0, 10);
-  const windowStartHHMM = `${String(windowStart.getHours()).padStart(2, "0")}:${String(windowStart.getMinutes()).padStart(2, "0")}`;
+  const nowMs = Date.now();
+  const today = new Date(nowMs).toISOString().slice(0, 10);
+  // Filtro amplio en SQL (por fecha, sin hora) para no barrer toda la tabla; el corte fino de
+  // "¿ya toca, o todavía no, o se pasó la ventana?" se hace abajo, en JS, por negocio.
+  const candidates = await all(env,
+    `SELECT r.* FROM appointment_reminders r
+     JOIN appointments a ON a.id = r.appointment_id
+     WHERE r.sent = 0 AND a.status = 'confirmed'
+       AND r.remind_date BETWEEN date(?, '-1 day') AND date(?, '+1 day')`,
+    today, today);
 
-  const due = await all(env,
-    `SELECT a.* FROM appointments a
-     WHERE a.status = 'confirmed'
-       AND a.confirmation_date IS NOT NULL AND a.confirmation_time IS NOT NULL
-       AND (a.confirmation_date || ' ' || a.confirmation_time) <= ?
-       AND (a.confirmation_date || ' ' || a.confirmation_time) >= ?
-       AND NOT EXISTS (
-         SELECT 1 FROM appointment_messages m WHERE m.appointment_id = a.id AND m.template_key = 'reminder'
-       )`,
-    `${todayIso} ${nowHHMM}`, `${windowStartIso} ${windowStartHHMM}`);
+  let checked = 0, sent = 0;
+  const businessCache = {};
+  for (const reminder of candidates) {
+    const appt = await first(env, `SELECT * FROM appointments WHERE id=? AND status='confirmed'`, reminder.appointment_id);
+    if (!appt) { await run(env, `UPDATE appointment_reminders SET sent=1 WHERE id=?`, reminder.id); continue; }
 
-  let sent = 0;
-  for (const appt of due) {
-    const business = await first(env, `SELECT * FROM businesses WHERE id=?`, appt.business_id);
+    const business = businessCache[appt.business_id] ||= await first(env, `SELECT * FROM businesses WHERE id=?`, appt.business_id);
     if (!business) continue;
+    const localNow = new Date(nowMs + (business.timezone_offset ?? -5) * 3600000);
+    const windowStart = new Date(localNow.getTime() - 20 * 60 * 1000);
+    const key = (d) => `${d.toISOString().slice(0, 10)} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+    const dueKey = `${reminder.remind_date} ${reminder.remind_time}`;
+    if (dueKey > key(localNow) || dueKey < key(windowStart)) continue;
+
+    checked++;
     const service = await first(env, `SELECT name FROM services WHERE id=?`, appt.service_id);
     const result = await sendApptMessage(env, business, appt, "reminder", { serviceName: service?.name });
+    await run(env, `UPDATE appointment_reminders SET sent=1 WHERE id=?`, reminder.id);
     if (result.ok) sent++;
   }
-  return { checked: due.length, sent };
+  return { checked, sent };
 }

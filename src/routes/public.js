@@ -1,6 +1,6 @@
 import { all, first, run, uid } from "../lib/db.js";
 import { json, error, readJson } from "../lib/http.js";
-import { availableSlots, reminderDateTime } from "../lib/availability.js";
+import { availableSlots, scheduleServiceReminders } from "../lib/availability.js";
 import { sendConfirmationRequest, sendConfirmedNotice } from "../lib/confirm.js";
 
 // Endpoints públicos para la página de reserva del cliente (sin login).
@@ -104,7 +104,6 @@ export function registerPublic(router) {
 
     const endMin = toMin(start) + service.duration_min;
     const end = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
-    const reminder = reminderDateTime(date, start, service.reminder_hours);
     const apptId = uid();
     // Que el celular coincida con uno ya "verified" en la tabla NO basta para saltarse el PIN —
     // cualquiera que se sepa el número de otra persona podría reservarle citas a su nombre sin que
@@ -118,10 +117,11 @@ export function registerPublic(router) {
     const status = skipConfirmation ? "confirmed" : "pending_confirmation";
     await run(env,
       `INSERT INTO appointments (id, business_id, client_id, client_name, client_email, client_phone,
-        specialist_id, service_id, date, start, end, status, confirm_channel, confirmation_date, confirmation_time, source_code)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        specialist_id, service_id, date, start, end, status, confirm_channel, source_code)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       apptId, ctx.business.id, client.id, clientName, clientEmail || null, clientPhone || null,
-      specialistId, serviceId, date, start, end, status, channel, reminder.date, reminder.time, sourceCode || null);
+      specialistId, serviceId, date, start, end, status, channel, sourceCode || null);
+    await scheduleServiceReminders(env, ctx.business.id, apptId, service, date, start);
 
     const appt = await first(env, `SELECT * FROM appointments WHERE id=?`, apptId);
     const origin = new URL(request.url).origin;

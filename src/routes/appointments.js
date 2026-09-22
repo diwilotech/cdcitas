@@ -1,7 +1,7 @@
 import { all, first, run, uid } from "../lib/db.js";
 import { json, error, notFound, readJson } from "../lib/http.js";
 import { sendApptMessage } from "../lib/messages.js";
-import { reminderDateTime } from "../lib/availability.js";
+import { reminderDateTimeMinutes, scheduleServiceReminders } from "../lib/availability.js";
 
 const toMin = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
 const toHHMM = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
@@ -29,14 +29,14 @@ export async function createStaffAppointment(env, business, b) {
   }
 
   const end = toHHMM(toMin(b.start) + service.duration_min);
-  const reminder = reminderDateTime(b.date, b.start, service.reminder_hours);
   const id = uid();
   await run(env,
     `INSERT INTO appointments (id, business_id, client_id, client_name, client_email, client_phone, specialist_id,
-      service_id, date, start, end, status, walk_in, confirmation_date, confirmation_time, treatment_id, session_label)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      service_id, date, start, end, status, walk_in, treatment_id, session_label)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     id, business.id, client.id, b.clientName, b.clientEmail || null, b.clientPhone || null, b.specialistId,
-    b.serviceId, b.date, b.start, end, "confirmed", 1, reminder.date, reminder.time, b.treatmentId || null, b.sessionLabel || null);
+    b.serviceId, b.date, b.start, end, "confirmed", 1, b.treatmentId || null, b.sessionLabel || null);
+  await scheduleServiceReminders(env, business.id, id, service, b.date, b.start);
   return { id, clientId: client.id };
 }
 // Ejecuta un cambio de estado + (opcionalmente) el aviso por WhatsApp correspondiente.
@@ -84,7 +84,7 @@ export function registerAppointments(router) {
     const appt = await getAppt(env, ctx.business.id, ctx.params.id);
     if (!appt) return notFound();
     const b = await readJson(request);
-    const editable = ["space_id", "confirmation_date", "confirmation_time", "paid"];
+    const editable = ["space_id", "paid"];
     const present = editable.filter((f) => f in b);
     if (present.length) {
       const setSql = present.map((f) => `${f} = ?`).join(", ");
@@ -144,6 +144,12 @@ export function registerAppointments(router) {
       `UPDATE appointments SET date=?, start=?, end=?, pending_move_date=NULL, pending_move_start=NULL, pending_move_end=NULL
        WHERE business_id=? AND id=?`,
       appt.pending_move_date, appt.pending_move_start, appt.pending_move_end, ctx.business.id, appt.id);
+    // Los recordatorios que vinieron del servicio apuntaban a la hora VIEJA — se recalculan para
+    // la nueva. Los que el staff añadió a mano desde Agenda (source='manual') se dejan tal cual,
+    // es una elección puntual de fecha/hora, no algo derivado de la cita que haya que correr.
+    await run(env, `DELETE FROM appointment_reminders WHERE appointment_id=? AND source='service' AND sent=0`, appt.id);
+    const service = await first(env, `SELECT * FROM services WHERE id=?`, appt.service_id);
+    if (service) await scheduleServiceReminders(env, ctx.business.id, appt.id, service, appt.pending_move_date, appt.pending_move_start);
     return json(await getAppt(env, ctx.business.id, appt.id));
   });
 
@@ -160,5 +166,34 @@ export function registerAppointments(router) {
     const appt = await getAppt(env, ctx.business.id, ctx.params.id);
     if (!appt) return notFound();
     return json(await all(env, `SELECT * FROM appointment_messages WHERE appointment_id=? ORDER BY sent_at DESC`, appt.id));
+  });
+
+  // Recordatorios automáticos de una cita — puede haber varios (el del servicio, un 2do del
+  // servicio, y los que el staff añada a mano acá). Ver Agenda → tarjeta de la cita.
+  router.get("/api/:slug/staff/appointments/:id/reminders", async (request, env, ctx) => {
+    const appt = await getAppt(env, ctx.business.id, ctx.params.id);
+    if (!appt) return notFound();
+    return json(await all(env, `SELECT * FROM appointment_reminders WHERE appointment_id=? ORDER BY remind_date, remind_time`, appt.id));
+  });
+
+  router.post("/api/:slug/staff/appointments/:id/reminders", async (request, env, ctx) => {
+    const appt = await getAppt(env, ctx.business.id, ctx.params.id);
+    if (!appt) return notFound();
+    const b = await readJson(request);
+    let date, time;
+    if (b.offsetMinutes) ({ date, time } = reminderDateTimeMinutes(appt.date, appt.start, Number(b.offsetMinutes)));
+    else if (b.date && b.time) ({ date, time } = b);
+    else return error("Falta la fecha y hora, o cuánto antes de la cita avisar.");
+    const id = uid();
+    await run(env,
+      `INSERT INTO appointment_reminders (id, appointment_id, business_id, remind_date, remind_time, source) VALUES (?,?,?,?,?,'manual')`,
+      id, appt.id, ctx.business.id, date, time);
+    return json(await first(env, `SELECT * FROM appointment_reminders WHERE id=?`, id), { status: 201 });
+  });
+
+  router.delete("/api/:slug/staff/appointments/:id/reminders/:reminderId", async (request, env, ctx) => {
+    await run(env, `DELETE FROM appointment_reminders WHERE business_id=? AND appointment_id=? AND id=?`,
+      ctx.business.id, ctx.params.id, ctx.params.reminderId);
+    return json({ ok: true });
   });
 }

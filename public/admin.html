@@ -715,6 +715,16 @@
           <div class="col-6"><label class="label-xs d-block mb-1">Precio</label><input type="number" id="editServicePrice" class="form-control"></div>
           <div class="col-6"><label class="label-xs d-block mb-1">Cancelación (hrs)</label><input type="number" id="editServiceCancel" class="form-control"></div>
           <div class="col-6"><label class="label-xs d-block mb-1">Recordatorio (hrs antes)</label><input type="number" id="editServiceReminder" class="form-control"></div>
+          <div class="col-6"><label class="label-xs d-block mb-1">2do recordatorio</label>
+            <select id="editServiceReminder2" class="form-select">
+              <option value="">Ninguno</option>
+              <option value="15">15 min antes</option>
+              <option value="30">30 min antes</option>
+              <option value="60">1 hora antes</option>
+              <option value="120">2 horas antes</option>
+              <option value="1440">1 día antes</option>
+            </select>
+          </div>
         </div>
         <label class="label-xs d-block mb-2">Espacios admitidos (ninguno marcado = cualquiera)</label>
         <div id="editServiceTypes" class="d-flex flex-wrap gap-3 mb-3"></div>

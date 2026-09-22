@@ -239,7 +239,7 @@ window.Rules = (function () {
               <span class="fw-semibold">${s.name}</span>
               <span class="badge rounded-pill" style="background:rgba(15,82,87,.1);color:var(--primary);">$${s.price.toLocaleString("es-CO")}</span>
             </div>
-            <div class="text-muted small mt-1">${s.duration_min} min · Cancela ${s.cancel_window_hours}h antes · Recordatorio ${s.reminder_hours}h antes</div>
+            <div class="text-muted small mt-1">${s.duration_min} min · Cancela ${s.cancel_window_hours}h antes · Recordatorio ${s.reminder_hours}h antes${s.reminder_2_minutes ? ` · 2do ${reminderMinutesLabel(s.reminder_2_minutes)}` : ""}</div>
             <div class="d-flex flex-wrap gap-1 mt-2">
               ${allowed.length ? allowed.map((k) => `<span class="badge rounded-pill" style="background:#f0eee6;color:var(--ink);font-size:.68rem;">${typeLabel(k)}</span>`).join("")
                 : `<span class="text-muted small" style="font-size:.72rem;">Admite cualquier espacio</span>`}
@@ -250,6 +250,12 @@ window.Rules = (function () {
       </div>`;
     }).join("");
     document.querySelectorAll("[data-edit-svc]").forEach((el) => (el.onclick = () => openEditService(el.dataset.editSvc)));
+  }
+
+  function reminderMinutesLabel(minutes) {
+    if (minutes >= 1440 && minutes % 1440 === 0) return `${minutes / 1440} día${minutes === 1440 ? "" : "s"} antes`;
+    if (minutes >= 60 && minutes % 60 === 0) return `${minutes / 60}h antes`;
+    return `${minutes} min antes`;
   }
 
   function serviceTypeCheckboxes(selected) {
@@ -318,6 +324,7 @@ window.Rules = (function () {
     document.getElementById("editServicePrice").value = s.price;
     document.getElementById("editServiceCancel").value = s.cancel_window_hours;
     document.getElementById("editServiceReminder").value = s.reminder_hours;
+    document.getElementById("editServiceReminder2").value = s.reminder_2_minutes || "";
     document.getElementById("editServiceFeatured").checked = !!s.featured;
     document.getElementById("editServiceTypes").innerHTML = serviceTypeCheckboxes(allowed);
     resetServicePhotoField(s.photo_key);
@@ -334,6 +341,7 @@ window.Rules = (function () {
     document.getElementById("editServicePrice").value = 0;
     document.getElementById("editServiceCancel").value = 4;
     document.getElementById("editServiceReminder").value = 12;
+    document.getElementById("editServiceReminder2").value = "";
     document.getElementById("editServiceFeatured").checked = false;
     document.getElementById("editServiceTypes").innerHTML = serviceTypeCheckboxes([]);
     resetServicePhotoField(null);
@@ -348,6 +356,8 @@ window.Rules = (function () {
       price: Math.max(0, parseInt(document.getElementById("editServicePrice").value, 10) || 0),
       cancel_window_hours: Math.max(0, parseInt(document.getElementById("editServiceCancel").value, 10) || 0),
       reminder_hours: Math.max(0, parseInt(document.getElementById("editServiceReminder").value, 10) || 0),
+      reminder_2_minutes: document.getElementById("editServiceReminder2").value
+        ? parseInt(document.getElementById("editServiceReminder2").value, 10) : null,
       featured: document.getElementById("editServiceFeatured").checked,
       allowed_space_types: Array.from(document.querySelectorAll("#editServiceTypes input:checked")).map((el) => el.value),
     };

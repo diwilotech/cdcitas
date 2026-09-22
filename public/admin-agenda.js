@@ -505,20 +505,7 @@ window.Agenda = (function () {
 
       renderActions();
 
-      document.getElementById("assignSpaceConfirmTime").innerHTML = `
-        <label class="label-xs d-block mb-1">Fecha y hora del recordatorio automático</label>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-          <input type="date" class="form-control form-control-sm" style="max-width:160px;" id="asConfirmDate" value="${a.confirmation_date || ""}">
-          <input type="time" class="form-control form-control-sm" style="max-width:140px;" id="asConfirmTime" value="${a.confirmation_time || ""}">
-          <button class="btn btn-sm btn-outline-dark" id="asConfirmSave">Guardar</button>
-        </div>`;
-      document.getElementById("asConfirmSave").onclick = async () => {
-        const date = document.getElementById("asConfirmDate").value;
-        const time = document.getElementById("asConfirmTime").value;
-        if (!date || !time) return toast("Elige fecha y hora.", false);
-        await api(`/staff/appointments/${a.id}`, { method: "PATCH", body: { confirmation_date: date, confirmation_time: time } });
-        toast("Recordatorio actualizado.");
-      };
+      await renderReminders(a);
 
       const messages = await api(`/staff/appointments/${a.id}/messages`).catch(() => []);
       const logBox = document.getElementById("assignSpaceMessageLog");
@@ -533,6 +520,81 @@ window.Agenda = (function () {
       } else { logBox.style.display = "none"; logBox.innerHTML = ""; }
 
       await renderMiniMap();
+    }
+
+    const REMINDER_QUICK_OPTIONS = [
+      { minutes: 15, label: "15 min antes" },
+      { minutes: 30, label: "30 min antes" },
+      { minutes: 60, label: "1 hora antes" },
+      { minutes: 120, label: "2 horas antes" },
+      { minutes: 1440, label: "1 día antes" },
+    ];
+
+    // "12h antes" / "15 min antes" etc., calculado contra la fecha/hora real de la cita — no se
+    // guarda como texto, así siempre refleja el estado actual aunque la cita se haya movido.
+    function reminderOffsetLabel(reminder, appt) {
+      const apptMs = new Date(`${appt.date}T${appt.start}:00`).getTime();
+      const remindMs = new Date(`${reminder.remind_date}T${reminder.remind_time}:00`).getTime();
+      const diffMin = Math.round((apptMs - remindMs) / 60000);
+      if (diffMin <= 0) return "al momento de la cita";
+      if (diffMin % 1440 === 0) return `${diffMin / 1440} día${diffMin === 1440 ? "" : "s"} antes`;
+      if (diffMin % 60 === 0) return `${diffMin / 60}h antes`;
+      return `${diffMin} min antes`;
+    }
+
+    // Lista de recordatorios de la cita (el del servicio, el 2do si aplica, y los que el staff
+    // añada acá) — cada uno muestra cuándo avisa junto a cuándo es la cita, para comparar de una.
+    async function renderReminders(a) {
+      const box = document.getElementById("assignSpaceConfirmTime");
+      const reminders = await api(`/staff/appointments/${a.id}/reminders`).catch(() => []);
+      box.innerHTML = `
+        <label class="label-xs d-block mb-2"><i class="bi bi-bell"></i> Recordatorios automáticos</label>
+        <div id="asRemindersList" class="d-flex flex-column gap-2 mb-2">
+          ${reminders.length ? reminders.map((r) => `
+            <div class="d-flex justify-content-between align-items-center p-2" style="background:#f9f8f3;border-radius:8px;">
+              <div class="small">
+                <div><i class="bi bi-alarm"></i> ${formatDateHuman(r.remind_date)} · ${formatAMPM(r.remind_time)}
+                  <span class="text-muted">(${reminderOffsetLabel(r, a)})</span></div>
+                <div class="text-muted" style="font-size:.7rem;">Cita: ${formatDateHuman(a.date)} · ${formatAMPM(a.start)}</div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge rounded-pill" style="background:${r.sent ? "#e8f3ea" : "#f0eee6"};color:${r.sent ? "#1e6b45" : "var(--muted)"};font-size:.65rem;">${r.sent ? "Enviado" : "Pendiente"}</span>
+                <button class="btn btn-sm btn-link text-danger p-0" data-del-reminder="${r.id}"><i class="bi bi-trash3"></i></button>
+              </div>
+            </div>`).join("")
+            : `<p class="text-muted small mb-0">No hay recordatorios para esta cita.</p>`}
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <select class="form-select form-select-sm" id="asReminderQuick" style="max-width:170px;">
+            ${REMINDER_QUICK_OPTIONS.map((o) => `<option value="${o.minutes}">${o.label}</option>`).join("")}
+            <option value="custom">Fecha y hora exacta…</option>
+          </select>
+          <input type="date" class="form-control form-control-sm" id="asReminderCustomDate" style="max-width:150px;display:none;">
+          <input type="time" class="form-control form-control-sm" id="asReminderCustomTime" style="max-width:120px;display:none;">
+          <button class="btn btn-sm btn-outline-dark" id="asReminderAdd"><i class="bi bi-plus-lg"></i> Añadir</button>
+        </div>`;
+
+      document.getElementById("asReminderQuick").onchange = (e) => {
+        const isCustom = e.target.value === "custom";
+        document.getElementById("asReminderCustomDate").style.display = isCustom ? "inline-block" : "none";
+        document.getElementById("asReminderCustomTime").style.display = isCustom ? "inline-block" : "none";
+      };
+      document.getElementById("asReminderAdd").onclick = async () => {
+        const quick = document.getElementById("asReminderQuick").value;
+        const body = quick === "custom"
+          ? { date: document.getElementById("asReminderCustomDate").value, time: document.getElementById("asReminderCustomTime").value }
+          : { offsetMinutes: Number(quick) };
+        if (quick === "custom" && (!body.date || !body.time)) return toast("Elige fecha y hora.", false);
+        await api(`/staff/appointments/${a.id}/reminders`, { method: "POST", body });
+        toast("Recordatorio añadido.");
+        await renderReminders(a);
+      };
+      box.querySelectorAll("[data-del-reminder]").forEach((el) => {
+        el.onclick = async () => {
+          await api(`/staff/appointments/${a.id}/reminders/${el.dataset.delReminder}`, { method: "DELETE" });
+          await renderReminders(a);
+        };
+      });
     }
 
     function renderActions() {
