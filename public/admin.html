@@ -221,7 +221,10 @@
           <div class="p-3 mb-3 text-start" style="background:#faf9f5;border:1px solid var(--line);border-radius:12px;">
             <div id="cardAddressDisplay" class="d-flex align-items-start gap-2 mb-2" style="cursor:pointer;">
               <i class="bi bi-geo-alt-fill" style="color:var(--primary);"></i>
-              <span class="small" id="cardAddressText"></span>
+              <div>
+                <span class="small d-block" id="cardAddressText"></span>
+                <span class="d-block" id="cardMapStatusBadge" style="font-size:.68rem;"></span>
+              </div>
             </div>
             <div id="cardAddressEditor" style="display:none;" class="mb-2">
               <input type="text" id="cardAddressInput" class="form-control form-control-sm mb-2" placeholder="Calle 10 #5-20, Bogotá">

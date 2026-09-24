@@ -55,7 +55,7 @@ window.Tarjeta = (function () {
         document.getElementById("cardLogoPreview").innerHTML = `<img src="/api/${tenantSlug()}/public/files/${currentBusiness.logo_key}" style="width:100%;height:100%;object-fit:cover;">`;
       }
       renderBioDisplay(currentBusiness.card_bio);
-      renderAddressDisplay(currentBusiness.card_address);
+      renderAddressDisplay(currentBusiness.card_address, currentBusiness.card_lat, currentBusiness.card_lng);
       document.getElementById("cardHoursPreview").textContent = hoursText(
         JSON.parse(currentBusiness.open_days || "[1,2,3,4,5,6]"), currentBusiness.open_hour, currentBusiness.close_hour);
     }
@@ -131,8 +131,13 @@ window.Tarjeta = (function () {
   };
 
   /* ---------- Dirección (clic para editar) ---------- */
-  function renderAddressDisplay(address) {
+  // El estado del mapa se muestra SIEMPRE visible (no solo al entrar a editar) — así se nota de
+  // una si falta configurarlo, sin tener que tocar la dirección primero para descubrirlo.
+  function renderAddressDisplay(address, lat, lng) {
     document.getElementById("cardAddressText").textContent = address || "Toca para poner la dirección";
+    document.getElementById("cardMapStatusBadge").innerHTML = (lat != null && lng != null)
+      ? `<span style="color:#1e6b45;"><i class="bi bi-check-circle-fill"></i> Mapa configurado</span>`
+      : `<span style="color:var(--danger);"><i class="bi bi-exclamation-circle-fill"></i> Sin ubicación en el mapa — toca aquí para configurarla</span>`;
   }
   function renderLocationStatus() {
     const status = document.getElementById("cardLocationStatus");
@@ -209,7 +214,7 @@ window.Tarjeta = (function () {
       currentBusiness.card_address = value;
       currentBusiness.card_lat = pendingCardLat;
       currentBusiness.card_lng = pendingCardLng;
-      renderAddressDisplay(value);
+      renderAddressDisplay(value, pendingCardLat, pendingCardLng);
       document.getElementById("cardAddressEditor").style.display = "none";
       document.getElementById("cardAddressDisplay").style.display = "flex";
     } catch (e) { toast(e.message, false); }
