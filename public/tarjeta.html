@@ -33,7 +33,14 @@
   <div id="infoCard" class="card-panel p-3 mb-3" style="display:none;">
     <div id="addressRow" class="d-flex align-items-start gap-2 mb-2" style="display:none;">
       <i class="bi bi-geo-alt-fill" style="color:var(--primary);"></i>
-      <a class="text-decoration-none text-body small" id="addressLink" href="#" target="_blank" rel="noopener"></a>
+      <div class="flex-grow-1">
+        <a class="text-decoration-none text-body small d-block" id="addressLink" href="#" target="_blank" rel="noopener"></a>
+        <button type="button" class="btn btn-link btn-sm p-0 small" id="distanceBtn" style="display:none;">¿A qué distancia estoy?</button>
+        <span class="small text-muted" id="distanceText" style="display:none;"></span>
+      </div>
+    </div>
+    <div id="mapWrap" style="display:none;border-radius:10px;overflow:hidden;margin-bottom:.75rem;">
+      <iframe id="mapFrame" width="100%" height="160" style="border:0;display:block;" loading="lazy"></iframe>
     </div>
     <div id="hoursRow" class="d-flex align-items-start gap-2">
       <i class="bi bi-clock-fill" style="color:var(--primary);"></i>
@@ -108,6 +115,37 @@ async function init() {
     link.onclick = () => track("click", "ubicacion");
     row.style.display = "flex";
   }
+  if (card.lat != null && card.lng != null) {
+    document.getElementById("mapWrap").style.display = "block";
+    document.getElementById("mapFrame").src = `https://maps.google.com/maps?q=${card.lat},${card.lng}&z=15&output=embed`;
+
+    // La distancia se pide con un botón (no automático al cargar) para no lanzar el permiso de
+    // ubicación del navegador sin que quien visita la tarjeta lo haya pedido.
+    const distanceBtn = document.getElementById("distanceBtn");
+    const distanceText = document.getElementById("distanceText");
+    distanceBtn.style.display = "inline-block";
+    distanceBtn.onclick = () => {
+      if (!navigator.geolocation) {
+        distanceText.textContent = "Tu navegador no soporta ubicación.";
+        distanceText.style.display = "inline";
+        return;
+      }
+      distanceBtn.disabled = true;
+      distanceBtn.textContent = "Calculando…";
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const km = haversineKm(pos.coords.latitude, pos.coords.longitude, card.lat, card.lng);
+        distanceText.textContent = `📍 A ${km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`} de ti`;
+        distanceText.style.display = "inline";
+        distanceBtn.style.display = "none";
+        track("click", "ver-distancia");
+      }, () => {
+        distanceBtn.disabled = false;
+        distanceBtn.textContent = "¿A qué distancia estoy?";
+        distanceText.textContent = "No pudimos obtener tu ubicación.";
+        distanceText.style.display = "inline";
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    };
+  }
   document.getElementById("hoursText").textContent = hoursText(card.openDays, card.openHour, card.closeHour);
 
   if (card.featuredServices.length) {
@@ -143,6 +181,14 @@ async function init() {
   document.querySelectorAll("[data-link-label]").forEach((el) => (el.onclick = () => track("click", el.dataset.linkLabel)));
 
   track("view", null);
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function hoursText(openDays, openHour, closeHour) {

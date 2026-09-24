@@ -15,6 +15,8 @@ export function registerCard(router) {
       logoKey: b.logo_key,
       bio: b.card_bio,
       address: b.card_address,
+      lat: b.card_lat,
+      lng: b.card_lng,
       openHour: b.open_hour,
       closeHour: b.close_hour,
       openDays: JSON.parse(b.open_days || "[1,2,3,4,5,6]"),

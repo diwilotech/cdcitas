@@ -36,6 +36,8 @@ window.Tarjeta = (function () {
   let editCardLinkModal = null;
   let editingCardLinkId = null;
   let currentBusiness = null;
+  let pendingCardLat = null;
+  let pendingCardLng = null;
 
   // La tarjeta se edita mostrándose a sí misma (no un formulario aparte) — se pinta igual que
   // tarjeta.html y cada pieza (bio, dirección, destacados, links) se edita tocándola ahí mismo.
@@ -132,11 +134,37 @@ window.Tarjeta = (function () {
   function renderAddressDisplay(address) {
     document.getElementById("cardAddressText").textContent = address || "Toca para poner la dirección";
   }
+  function renderLocationStatus() {
+    const status = document.getElementById("cardLocationStatus");
+    status.textContent = pendingCardLat != null && pendingCardLng != null
+      ? "Ubicación en el mapa: guardada ✓" : "Sin ubicación en el mapa todavía (el mapa y la distancia no se muestran sin esto).";
+  }
   document.getElementById("cardAddressDisplay").onclick = () => {
     document.getElementById("cardAddressInput").value = currentBusiness.card_address || "";
+    pendingCardLat = currentBusiness.card_lat;
+    pendingCardLng = currentBusiness.card_lng;
+    renderLocationStatus();
     document.getElementById("cardAddressDisplay").style.display = "none";
     document.getElementById("cardAddressEditor").style.display = "block";
     document.getElementById("cardAddressInput").focus();
+  };
+  // Captura la ubicación del NAVEGADOR DEL NEGOCIO (quien está editando la tarjeta, parado en el
+  // local) — no hay geocodificación del texto de la dirección, así se evita depender de una API de
+  // mapas con costo/llave; el mismo par lat/lng alimenta el mapa y el cálculo de distancia en la
+  // tarjeta pública (ver tarjeta.html).
+  document.getElementById("cardLocationBtn").onclick = () => {
+    if (!navigator.geolocation) return toast("Tu navegador no soporta ubicación.", false);
+    const btn = document.getElementById("cardLocationBtn");
+    btn.disabled = true;
+    navigator.geolocation.getCurrentPosition((pos) => {
+      pendingCardLat = pos.coords.latitude;
+      pendingCardLng = pos.coords.longitude;
+      renderLocationStatus();
+      btn.disabled = false;
+    }, () => {
+      toast("No se pudo obtener tu ubicación — revisa el permiso del navegador.", false);
+      btn.disabled = false;
+    }, { enableHighAccuracy: true, timeout: 10000 });
   };
   document.getElementById("cardAddressCancelBtn").onclick = () => {
     document.getElementById("cardAddressEditor").style.display = "none";
@@ -145,8 +173,10 @@ window.Tarjeta = (function () {
   document.getElementById("cardAddressSaveBtn").onclick = async () => {
     const value = document.getElementById("cardAddressInput").value.trim() || null;
     try {
-      await api("/staff/settings", { method: "PATCH", body: { cardAddress: value } });
+      await api("/staff/settings", { method: "PATCH", body: { cardAddress: value, cardLat: pendingCardLat, cardLng: pendingCardLng } });
       currentBusiness.card_address = value;
+      currentBusiness.card_lat = pendingCardLat;
+      currentBusiness.card_lng = pendingCardLng;
       renderAddressDisplay(value);
       document.getElementById("cardAddressEditor").style.display = "none";
       document.getElementById("cardAddressDisplay").style.display = "flex";
