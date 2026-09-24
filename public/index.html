@@ -90,6 +90,14 @@
           <span class="fw-bold fs-5" id="sumTotal"></span>
         </div>
 
+        <div id="sumLocationWrap" class="mb-3" style="display:none;">
+          <div style="border-radius:10px;overflow:hidden;margin-bottom:.5rem;">
+            <iframe id="sumMapFrame" width="100%" height="140" style="border:0;display:block;" loading="lazy"></iframe>
+          </div>
+          <button type="button" class="btn btn-link btn-sm p-0 small" id="sumDistanceBtn">¿A qué distancia estoy del local?</button>
+          <span class="small text-muted" id="sumDistanceText" style="display:none;"></span>
+        </div>
+
         <label class="label-xs d-block mb-1">Tu celular</label>
         <input type="tel" id="clientPhone" class="form-control mb-1" placeholder="Ej. 3001234567">
         <p class="text-muted small mb-3" id="phoneHint">Con tu celular revisamos si ya estás registrado — así sabemos si hace falta pedirte más datos.</p>
@@ -134,7 +142,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/app.js"></script>
 <script>
-const { api, tenantSlug, toast, dateToISO } = window.CDC;
+const { api, tenantSlug, toast, dateToISO, haversineKm } = window.CDC;
 
 // Paleta rotativa para las tarjetas de servicio (la base de datos no guarda foto/ícono por servicio).
 const SERVICE_THEMES = [
@@ -251,6 +259,37 @@ async function renderPromoBanner() {
     </div>`).join("");
 }
 
+// Mapa + distancia al local en el resumen de la reserva — el negocio es el mismo para todo el
+// flujo, así que se arma una sola vez acá en vez de cada vez que se abre el modal.
+function setupLocationSummary() {
+  if (business.lat == null || business.lng == null) return;
+  document.getElementById("sumLocationWrap").style.display = "block";
+  document.getElementById("sumMapFrame").src = `https://maps.google.com/maps?q=${business.lat},${business.lng}&z=15&output=embed`;
+
+  const btn = document.getElementById("sumDistanceBtn");
+  const text = document.getElementById("sumDistanceText");
+  btn.onclick = () => {
+    if (!navigator.geolocation) {
+      text.textContent = "Tu navegador no soporta ubicación.";
+      text.style.display = "inline";
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "Calculando…";
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const km = haversineKm(pos.coords.latitude, pos.coords.longitude, business.lat, business.lng);
+      text.textContent = `📍 A ${km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`} de ti`;
+      text.style.display = "inline";
+      btn.style.display = "none";
+    }, () => {
+      btn.disabled = false;
+      btn.textContent = "¿A qué distancia estoy del local?";
+      text.textContent = "No pudimos obtener tu ubicación.";
+      text.style.display = "inline";
+    }, { enableHighAccuracy: true, timeout: 10000 });
+  };
+}
+
 async function init() {
   if (!tenantSlug()) { document.getElementById("noTenant").style.display = "block"; return; }
   business = await api("/public/business").catch((e) => { toast(e.message, false); return null; });
@@ -262,6 +301,7 @@ async function init() {
   }
   document.getElementById("misCitasLink").href = `/${tenantSlug()}/mis-citas`;
   document.getElementById("tarjetaInfoLink").href = `/${tenantSlug()}/tarjeta`;
+  setupLocationSummary();
   renderPromoBanner();
   document.getElementById("bookingFlow").style.display = "block";
   bookingModal = new bootstrap.Modal(document.getElementById("bookingModal"));
@@ -466,9 +506,12 @@ async function confirmBooking() {
       waLink.style.display = "none";
     } else if (res.messageResult && res.messageResult.ok && res.messageResult.waLink) {
       icon.className = "bi bi-hourglass-split"; icon.style.color = "var(--amber)"; title.textContent = "¡Ya casi!";
-      document.getElementById("doneMsg").textContent = `Te reservamos el horario por ${res.messageResult.windowHours || 3}h. Toca el botón: se abre tu WhatsApp con el mensaje ya escrito, solo tienes que enviarlo para confirmar.`;
+      document.getElementById("doneMsg").textContent = `Te reservamos el horario por ${res.messageResult.windowHours || 3}h. Te llevamos a WhatsApp con el mensaje ya escrito — solo tienes que enviarlo para confirmar.`;
       waLink.href = res.messageResult.waLink;
       waLink.style.display = "inline-flex";
+      // Manda directo a WhatsApp en vez de esperar a que toquen el botón — el botón se deja
+      // visible como respaldo por si el navegador bloquea la redirección automática.
+      location.href = res.messageResult.waLink;
     } else {
       icon.className = "bi bi-hourglass-split"; icon.style.color = "var(--amber)"; title.textContent = "¡Ya casi!";
       document.getElementById("doneMsg").textContent = "Tu cita quedó reservada, pero no pudimos armar el link de confirmación por WhatsApp. Contáctanos para confirmarla.";

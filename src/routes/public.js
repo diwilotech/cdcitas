@@ -30,6 +30,8 @@ export function registerPublic(router) {
       openHour: ctx.business.open_hour,
       closeHour: ctx.business.close_hour,
       openDays: JSON.parse(ctx.business.open_days || "[1,2,3,4,5,6]"),
+      lat: ctx.business.card_lat,
+      lng: ctx.business.card_lng,
       dateExceptions,
       services,
       specialists,

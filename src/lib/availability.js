@@ -87,12 +87,13 @@ export async function availableSlots(env, business, { serviceId, specialistId, d
   for (const row of [...appts, ...blocks]) busy.push([toMin(row.start), toMin(row.end)]);
 
   if (clientId) {
-    // 'reagendar' también cuenta como que el cliente "tiene algo ahí" — aunque el especialista sí
-    // queda libre para otra persona en ese horario (por eso NO se agrega arriba, en el chequeo del
-    // especialista), el cliente no debería poder agendar otra cita suya encima de una que todavía
-    // no movió/canceló, porque en la lista se ve como que sigue ahí.
+    // 'reagendar' NO cuenta acá: ese horario ya quedó libre para el especialista (no se agrega
+    // arriba, en su chequeo) precisamente porque la cita ya no es un compromiso real — bloquear al
+    // mismo cliente de tomar ese mismo horario de nuevo (o uno que se le cruce) hacía que la
+    // reserva pública rechazara un horario que en la práctica estaba libre, con el mensaje de
+    // "se cruza con otra cita tuya" apareciendo sin que hubiera un cruce de verdad.
     const clientAppts = await all(env,
-      `SELECT start, end FROM appointments WHERE business_id=? AND client_id=? AND date=? AND status IN ('confirmed','pending_confirmation','reagendar') AND id != ?`,
+      `SELECT start, end FROM appointments WHERE business_id=? AND client_id=? AND date=? AND status IN ('confirmed','pending_confirmation') AND id != ?`,
       business.id, clientId, date, excludeApptId || "");
     for (const row of clientAppts) busy.push([toMin(row.start), toMin(row.end)]);
   }

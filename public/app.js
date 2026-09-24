@@ -168,9 +168,20 @@
     return `rgb(${f(r)},${f(g)},${f(b)})`;
   }
 
+  // Distancia en línea recta (no en carro/caminando) entre dos puntos — usada donde se muestra
+  // "a cuántos km estás" del negocio (tarjeta digital, resumen de reserva), sin depender de una
+  // API de rutas con costo/llave.
+  function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
   window.CDC = {
     api, apiRoot, tenantSlug, toast,
     timeToMin, minToHHMM, todayISO, dateToISO, formatAMPM, formatHourAMPM, formatDateHuman,
-    layoutOverlaps, effectiveHours, renderColorPicker, colorAlpha, colorDarken,
+    layoutOverlaps, effectiveHours, renderColorPicker, colorAlpha, colorDarken, haversineKm,
   };
 })();
