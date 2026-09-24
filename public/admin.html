@@ -225,8 +225,19 @@
             </div>
             <div id="cardAddressEditor" style="display:none;" class="mb-2">
               <input type="text" id="cardAddressInput" class="form-control form-control-sm mb-2" placeholder="Calle 10 #5-20, Bogotá">
-              <button type="button" class="btn btn-sm btn-outline-dark mb-1" id="cardLocationBtn"><i class="bi bi-crosshair"></i> Usar mi ubicación actual</button>
+              <label class="label-xs d-block mb-1">Ubicación en el mapa (para el mapa y la distancia en la tarjeta y la reserva)</label>
+              <div class="d-flex gap-2 flex-wrap mb-2">
+                <button type="button" class="btn btn-sm btn-outline-dark" id="cardLocationBtn"><i class="bi bi-crosshair"></i> Mi ubicación actual</button>
+                <button type="button" class="btn btn-sm btn-outline-dark" id="cardGeocodeAddressBtn"><i class="bi bi-search"></i> Buscar por la dirección</button>
+              </div>
+              <div class="input-group input-group-sm mb-2">
+                <input type="text" id="cardMapLinkInput" class="form-control" placeholder="O pega el link de Google Maps de tu negocio">
+                <button class="btn btn-outline-dark" type="button" id="cardGeocodeLinkBtn">Usar link</button>
+              </div>
               <p class="text-muted mb-2" style="font-size:.72rem;" id="cardLocationStatus"></p>
+              <div id="cardLocationPreview" style="display:none;border-radius:8px;overflow:hidden;margin-bottom:.75rem;">
+                <iframe id="cardLocationPreviewFrame" width="100%" height="140" style="border:0;display:block;" loading="lazy"></iframe>
+              </div>
               <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-brand" id="cardAddressSaveBtn">Guardar</button>
                 <button class="btn btn-sm btn-outline-dark" id="cardAddressCancelBtn">Cancelar</button>

@@ -136,11 +136,19 @@ window.Tarjeta = (function () {
   }
   function renderLocationStatus() {
     const status = document.getElementById("cardLocationStatus");
-    status.textContent = pendingCardLat != null && pendingCardLng != null
-      ? "Ubicación en el mapa: guardada ✓" : "Sin ubicación en el mapa todavía (el mapa y la distancia no se muestran sin esto).";
+    const preview = document.getElementById("cardLocationPreview");
+    if (pendingCardLat != null && pendingCardLng != null) {
+      status.textContent = "Ubicación en el mapa: guardada ✓ — revisa abajo que el pin quede en el lugar correcto.";
+      document.getElementById("cardLocationPreviewFrame").src = `https://maps.google.com/maps?q=${pendingCardLat},${pendingCardLng}&z=16&output=embed`;
+      preview.style.display = "block";
+    } else {
+      status.textContent = "Sin ubicación en el mapa todavía (el mapa y la distancia no se muestran sin esto).";
+      preview.style.display = "none";
+    }
   }
   document.getElementById("cardAddressDisplay").onclick = () => {
     document.getElementById("cardAddressInput").value = currentBusiness.card_address || "";
+    document.getElementById("cardMapLinkInput").value = "";
     pendingCardLat = currentBusiness.card_lat;
     pendingCardLng = currentBusiness.card_lng;
     renderLocationStatus();
@@ -148,10 +156,11 @@ window.Tarjeta = (function () {
     document.getElementById("cardAddressEditor").style.display = "block";
     document.getElementById("cardAddressInput").focus();
   };
-  // Captura la ubicación del NAVEGADOR DEL NEGOCIO (quien está editando la tarjeta, parado en el
-  // local) — no hay geocodificación del texto de la dirección, así se evita depender de una API de
-  // mapas con costo/llave; el mismo par lat/lng alimenta el mapa y el cálculo de distancia en la
-  // tarjeta pública (ver tarjeta.html).
+  // Tres formas de conseguir lat/lng, sin API de mapas con costo/llave:
+  // 1) la ubicación del NAVEGADOR DEL NEGOCIO (quien está editando, parado en el local),
+  // 2) un link de Google Maps pegado a mano (incluye links cortos, se sigue la redirección),
+  // 3) buscar el texto de la dirección con Nominatim (OpenStreetMap) — la más imprecisa de las
+  //    tres para direcciones colombianas, por eso siempre se muestra el mapa para confirmar.
   document.getElementById("cardLocationBtn").onclick = () => {
     if (!navigator.geolocation) return toast("Tu navegador no soporta ubicación.", false);
     const btn = document.getElementById("cardLocationBtn");
@@ -162,9 +171,32 @@ window.Tarjeta = (function () {
       renderLocationStatus();
       btn.disabled = false;
     }, () => {
-      toast("No se pudo obtener tu ubicación — revisa el permiso del navegador.", false);
+      toast("No se pudo obtener tu ubicación — revisa el permiso del navegador, o usa el link de Google Maps.", false);
       btn.disabled = false;
     }, { enableHighAccuracy: true, timeout: 10000 });
+  };
+  async function geocodeInto(query, btn, busyLabel) {
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = busyLabel;
+    try {
+      const { lat, lng } = await api("/staff/geocode", { method: "POST", body: { query } });
+      pendingCardLat = lat;
+      pendingCardLng = lng;
+      renderLocationStatus();
+    } catch (e) { toast(e.message, false); }
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+  document.getElementById("cardGeocodeAddressBtn").onclick = () => {
+    const address = document.getElementById("cardAddressInput").value.trim();
+    if (!address) return toast("Escribe la dirección primero.", false);
+    geocodeInto(address, document.getElementById("cardGeocodeAddressBtn"), "Buscando…");
+  };
+  document.getElementById("cardGeocodeLinkBtn").onclick = () => {
+    const link = document.getElementById("cardMapLinkInput").value.trim();
+    if (!link) return toast("Pega un link de Google Maps.", false);
+    geocodeInto(link, document.getElementById("cardGeocodeLinkBtn"), "Buscando…");
   };
   document.getElementById("cardAddressCancelBtn").onclick = () => {
     document.getElementById("cardAddressEditor").style.display = "none";

@@ -3,6 +3,7 @@ import { json, error, readJson } from "../lib/http.js";
 import { DEFAULT_TEMPLATES } from "../lib/templates.js";
 import { sendWhatsApp } from "../lib/whatsapp.js";
 import { sendEmail } from "../lib/mailer.js";
+import { geocodeQuery } from "../lib/geocode.js";
 
 export function registerSettings(router) {
   router.get("/api/:slug/staff/settings", async (request, env, ctx) => json(ctx.business));
@@ -26,6 +27,17 @@ export function registerSettings(router) {
     await run(env, `UPDATE businesses SET ${present.map(([k]) => `${k} = ?`).join(", ")} WHERE id = ?`,
       ...present.map(([, v]) => v), ctx.business.id);
     return json(await first(env, `SELECT * FROM businesses WHERE id=?`, ctx.business.id));
+  });
+
+  // Coordenadas a partir de una dirección en texto o un link de Google Maps (para el mapa y la
+  // distancia de la tarjeta digital) — alternativa a "Usar mi ubicación actual" del navegador,
+  // para cuando el negocio prefiere no depender del permiso de ubicación o no está en el local.
+  router.post("/api/:slug/staff/geocode", async (request, env, ctx) => {
+    const { query } = await readJson(request);
+    if (!query || !query.trim()) return error("Escribe una dirección o pega un link de Google Maps.");
+    const result = await geocodeQuery(query.trim());
+    if (!result) return error("No pudimos encontrar esa ubicación — prueba con el link de Google Maps de tu negocio, o sé más específico con la dirección.");
+    return json(result);
   });
 
   // Nuevo link de webhook (por si el anterior se filtró) — invalida el que estaba pegado en Evolution API.
