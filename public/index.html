@@ -100,7 +100,7 @@
 
         <label class="label-xs d-block mb-1">Tu celular</label>
         <input type="tel" id="clientPhone" class="form-control mb-1" placeholder="Ej. 3001234567">
-        <p class="text-muted small mb-3" id="phoneHint">Con tu celular revisamos si ya estás registrado — así sabemos si hace falta pedirte más datos.</p>
+        <p class="text-muted small mb-3" id="phoneHint">Escribe tu celular para confirmar — si no estás registrado, te registramos de una.</p>
 
         <div id="returningClientNote" class="d-flex align-items-center gap-2 p-2 mb-3" style="display:none;background:#e6f4ec;border-radius:10px;">
           <i class="bi bi-check-circle-fill" style="color:#1e6b45;"></i>
@@ -190,8 +190,13 @@ function resetPhoneStep() {
   document.getElementById("returningClientNote").style.display = "none";
   document.getElementById("newClientFields").style.display = "none";
   document.getElementById("slotConflictWarning").style.display = "none";
-  document.getElementById("phoneHint").textContent = "Con tu celular revisamos si ya estás registrado — así sabemos si hace falta pedirte más datos.";
+  document.getElementById("phoneHint").textContent = "Escribe tu celular para confirmar — si no estás registrado, te registramos de una.";
 }
+// Si el navegador restaura esta página desde el bfcache (volver con "atrás", o retomar la
+// pestaña en el celular después de un rato) el JS no se vuelve a ejecutar — el modal podía quedar
+// mostrando el aviso de "ya estás registrado"/"se cruza con otra cita" de la última vez que se
+// abrió, sin que la persona haya escrito nada esta vez. Se limpia también en ese caso.
+window.addEventListener("pageshow", (e) => { if (e.persisted) resetPhoneStep(); });
 
 // La grilla de horarios se arma ANTES de saber quién reserva (el celular se pide después, ya
 // elegidos servicio/especialista/fecha/hora), así que no puede tener en cuenta si esta misma
