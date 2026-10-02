@@ -44,9 +44,10 @@
   <hr class="my-4">
 
   <div class="step-head"><span class="step-num">3</span><h2 class="h5 fw-bold mb-0">Elige fecha y hora</h2></div>
+  <p class="text-muted small" id="dateTimePlaceholder" style="display:none;">Primero elige un servicio y un especialista.</p>
   <div id="dayStrip" class="d-flex gap-2 lateral-scroll"></div>
 
-  <div class="card-panel p-3" style="margin-bottom:5rem;">
+  <div class="card-panel p-3" id="slotsCard" style="margin-bottom:5rem;">
     <p class="label-xs mb-2">Mañana</p>
     <div class="d-flex flex-wrap gap-2 mb-3" id="slotsMorning"></div>
     <p class="label-xs mb-2">Tarde</p>
@@ -100,6 +101,7 @@
 
         <label class="label-xs d-block mb-1">Tu celular</label>
         <input type="tel" id="clientPhone" class="form-control mb-1" placeholder="Ej. 3001234567">
+        <p class="text-muted mb-2" style="font-size:.72rem;"><i class="bi bi-shield-lock-fill" style="color:var(--primary);"></i> Protegemos tu número — solo lo usamos para confirmar tu cita por WhatsApp.</p>
         <p class="text-muted small mb-3" id="phoneHint">Escribe tu celular para confirmar — si no estás registrado, te registramos de una.</p>
 
         <div id="returningClientNote" class="d-flex align-items-center gap-2 p-2 mb-3" style="display:none;background:#e6f4ec;border-radius:10px;">
@@ -120,6 +122,7 @@
           <p class="text-muted small mb-0">Ese horario se cruza con otra cita tuya ese día — cierra este mensaje y elige otro horario en el calendario.</p>
         </div>
 
+        <p class="text-muted text-center mb-2" style="font-size:.7rem;">Al confirmar, aceptas nuestra <a href="/privacidad" target="_blank" rel="noopener">política de privacidad</a>.</p>
         <button class="btn btn-brand w-100 py-2" id="confirmBtn" disabled>
           <i class="bi bi-check2-circle"></i> Confirmar cita
         </button>
@@ -320,7 +323,9 @@ async function init() {
   document.getElementById("bookingModal").addEventListener("hidden.bs.modal", resetPhoneStep);
 
   renderServices();
+  renderSpecialists();
   renderDays();
+  renderDateTimeGate();
   updateSummary();
 
   // Si llegan desde el botón "Ver" de un servicio destacado en la tarjeta digital
@@ -349,16 +354,30 @@ function renderServices() {
 }
 
 function renderSpecialists() {
+  const strip = document.getElementById("specialistStrip");
+  if (!state.serviceId) {
+    strip.innerHTML = `<p class="text-muted small mb-0">Primero elige un servicio.</p>`;
+    return;
+  }
   const ids = business.specialistsByService[state.serviceId] || business.specialists.map((s) => s.id);
   const list = business.specialists.filter((s) => ids.includes(s.id));
   const shown = list.length ? list : business.specialists;
-  document.getElementById("specialistStrip").innerHTML = shown.map((sp) => `
+  strip.innerHTML = shown.map((sp) => `
     <div class="specialist-card ${state.specialistId === sp.id ? "selected" : ""}" data-id="${sp.id}">
       <div class="avatar-fill" style="background:${sp.color}">${sp.avatar}</div>
       <div class="sname">${sp.name}</div>
       ${sp.role ? `<div class="srole">${sp.role}</div>` : ""}
     </div>`).join("");
   document.querySelectorAll("#specialistStrip .specialist-card").forEach((el) => (el.onclick = () => selectSpecialist(el.dataset.id)));
+}
+
+// Igual que el especialista: sin servicio+especialista elegidos, fecha/hora no muestra nada
+// interactivo, solo el mensaje — así no se ve como una grilla usable que en realidad no hace nada.
+function renderDateTimeGate() {
+  const ready = !!(state.serviceId && state.specialistId);
+  document.getElementById("dateTimePlaceholder").style.display = ready ? "none" : "block";
+  document.getElementById("dayStrip").style.display = ready ? "flex" : "none";
+  document.getElementById("slotsCard").style.display = ready ? "block" : "none";
 }
 
 function dayList() {
@@ -401,12 +420,12 @@ function selectService(id) {
   state.serviceId = id;
   state.specialistId = null;
   state.time = null;
-  renderServices(); renderSpecialists(); loadSlots(); updateSummary();
+  renderServices(); renderSpecialists(); renderDateTimeGate(); loadSlots(); updateSummary();
 }
 function selectSpecialist(id) {
   state.specialistId = id;
   state.time = null;
-  renderSpecialists(); loadSlots(); updateSummary();
+  renderSpecialists(); renderDateTimeGate(); loadSlots(); updateSummary();
 }
 function selectDay(iso) {
   state.date = iso;
