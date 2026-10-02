@@ -489,24 +489,6 @@ window.Agenda = (function () {
           ${a.client_phone ? `<div><i class="bi bi-telephone"></i> ${a.client_phone}</div>` : ""}
         </div>` : ""}</div>`;
 
-      const depositBox = document.getElementById("assignSpaceDeposit");
-      if (a.deposit_requested) {
-        depositBox.style.display = "block";
-        depositBox.innerHTML = `<div class="p-3" style="background:#eaf1fb;border-radius:10px;">
-          <div class="d-flex justify-content-between align-items-center">
-            <p class="small fw-semibold mb-0" style="color:#2a4d7a;"><i class="bi bi-cash-coin"></i> Anticipo de $${Number(a.deposit_amount || 0).toLocaleString("es-CO")}</p>
-            <div class="form-check mb-0">
-              <input class="form-check-input" type="checkbox" id="asDepositPaid" ${a.deposit_paid ? "checked" : ""}>
-              <label class="form-check-label small" for="asDepositPaid">Ya llegó</label>
-            </div>
-          </div>
-        </div>`;
-        document.getElementById("asDepositPaid").onchange = async (e) => {
-          await api(`/staff/appointments/${a.id}`, { method: "PATCH", body: { deposit_paid: e.target.checked } });
-          toast(e.target.checked ? "Anticipo marcado como recibido." : "Anticipo marcado como no recibido.");
-        };
-      } else { depositBox.style.display = "none"; depositBox.innerHTML = ""; }
-
       const pendingBox = document.getElementById("assignSpacePendingMove");
       if (a.pending_move_date) {
         pendingBox.style.display = "block";

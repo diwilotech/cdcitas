@@ -91,13 +91,6 @@
           <span class="fw-bold fs-5" id="sumTotal"></span>
         </div>
 
-        <div id="depositWrap" class="p-3 mb-3" style="display:none;background:#eaf1fb;border-radius:12px;">
-          <div class="form-check mb-0">
-            <input class="form-check-input" type="checkbox" id="depositCheckbox">
-            <label class="form-check-label small" for="depositCheckbox">Dejar un anticipo de <strong id="depositAmountText"></strong> para asegurar mi cita <span class="text-muted">(opcional)</span></label>
-          </div>
-        </div>
-
         <div id="sumLocationWrap" class="mb-3" style="display:none;">
           <div style="border-radius:10px;overflow:hidden;margin-bottom:.5rem;">
             <iframe id="sumMapFrame" width="100%" height="140" style="border:0;display:block;" loading="lazy"></iframe>
@@ -143,10 +136,6 @@
     <i class="bi bi-hourglass-split" id="doneIcon" style="font-size:2.5rem;color:var(--amber);"></i>
     <h3 class="display-font fw-bold mt-2" id="doneTitle">¡Ya casi!</h3>
     <p class="text-muted mb-3" id="doneMsg">Te reservamos el horario. Falta confirmar.</p>
-    <div id="depositInstructionsBox" class="text-start p-3 mb-3" style="display:none;background:#eaf1fb;border-radius:12px;">
-      <p class="small fw-semibold mb-1" style="color:#2a4d7a;"><i class="bi bi-cash-coin"></i> Anticipo de <span id="depositInstructionsAmount"></span></p>
-      <p class="small text-muted mb-0" id="depositInstructionsText"></p>
-    </div>
     <a class="btn btn-brand w-100 py-2" id="waConfirmLink" href="#" target="_blank" rel="noopener" style="display:none;">
       <i class="bi bi-whatsapp"></i> Confirmar por WhatsApp
     </a>
@@ -177,7 +166,7 @@ const sourceCode = new URLSearchParams(location.search).get("src") || null;
 let checkSeq = 0; // se incrementa en cada tecla/apertura de modal, para descartar respuestas viejas que lleguen tarde
 // El celular es el dato que se pide primero — con él se revisa si la persona ya está
 // registrada (foundClient) para no volver a pedirle nombre/correo ni el PIN por WhatsApp.
-const state = { serviceId: null, specialistId: null, date: null, time: null, foundClient: null, slotConflict: false, depositAmount: null };
+const state = { serviceId: null, specialistId: null, date: null, time: null, foundClient: null, slotConflict: false };
 
 function updateConfirmBtnState() {
   const phone = document.getElementById("clientPhone").value.trim();
@@ -493,17 +482,6 @@ function openBookingModal() {
   document.getElementById("sumTime").textContent = to12h(state.time);
   document.getElementById("sumTotal").textContent = "$" + service.price;
 
-  const depositWrap = document.getElementById("depositWrap");
-  if (business.depositEnabled) {
-    state.depositAmount = business.depositType === "percent"
-      ? Math.round(service.price * business.depositValue / 100) : business.depositValue;
-    document.getElementById("depositAmountText").textContent = "$" + state.depositAmount.toLocaleString("es-CO");
-    document.getElementById("depositCheckbox").checked = false;
-    depositWrap.style.display = "block";
-  } else {
-    depositWrap.style.display = "none";
-  }
-
   document.getElementById("clientPhone").value = "";
   document.getElementById("clientName").value = "";
   document.getElementById("clientEmail").value = "";
@@ -537,7 +515,6 @@ async function confirmBooking() {
       clientPhone,
       channel: "whatsapp",
       sourceCode,
-      depositRequested: document.getElementById("depositCheckbox").checked,
     }});
     bookingModal.hide();
     document.getElementById("bookingFlow").style.display = "none";
@@ -545,14 +522,6 @@ async function confirmBooking() {
     const waLink = document.getElementById("waConfirmLink");
     const icon = document.getElementById("doneIcon");
     const title = document.getElementById("doneTitle");
-    const depositBox = document.getElementById("depositInstructionsBox");
-    if (res.appointment.deposit_requested) {
-      document.getElementById("depositInstructionsAmount").textContent = "$" + Number(res.appointment.deposit_amount).toLocaleString("es-CO");
-      document.getElementById("depositInstructionsText").textContent = business.depositInstructions || "Escríbele al negocio para coordinar cómo pagarlo.";
-      depositBox.style.display = "block";
-    } else {
-      depositBox.style.display = "none";
-    }
     if (res.alreadyConfirmed) {
       icon.className = "bi bi-check-circle-fill";
       icon.style.color = "#1e6b45";
