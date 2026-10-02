@@ -32,6 +32,10 @@ export function registerPublic(router) {
       openDays: JSON.parse(ctx.business.open_days || "[1,2,3,4,5,6]"),
       lat: ctx.business.card_lat,
       lng: ctx.business.card_lng,
+      depositEnabled: !!ctx.business.deposit_enabled,
+      depositType: ctx.business.deposit_type,
+      depositValue: ctx.business.deposit_value,
+      depositInstructions: ctx.business.deposit_instructions,
       dateExceptions,
       services,
       specialists,
@@ -78,7 +82,7 @@ export function registerPublic(router) {
 
   router.post("/api/:slug/public/book", async (request, env, ctx) => {
     const body = await readJson(request);
-    const { serviceId, specialistId, date, start, clientName, clientEmail, clientPhone, manageToken, sourceCode } = body;
+    const { serviceId, specialistId, date, start, clientName, clientEmail, clientPhone, manageToken, sourceCode, depositRequested } = body;
     const channel = body.channel === "email" ? "email" : "whatsapp";
     if (!serviceId || !specialistId || !date || !start || !clientName) return error("Faltan datos de la reserva.");
     if (channel === "whatsapp" && !clientPhone) return error("Escribe tu celular para mandarte el código por WhatsApp.");
@@ -107,6 +111,12 @@ export function registerPublic(router) {
     const endMin = toMin(start) + service.duration_min;
     const end = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
     const apptId = uid();
+    // El monto se calcula acá, nunca se confía en uno que mande el cliente — si el negocio cambia
+    // su configuración de anticipo después, las citas ya reservadas conservan el monto con el que
+    // se reservaron (queda "congelado" en la cita, no recalculado cada vez).
+    const depositAmount = (ctx.business.deposit_enabled && depositRequested)
+      ? (ctx.business.deposit_type === "percent" ? Math.round(service.price * ctx.business.deposit_value / 100) : ctx.business.deposit_value)
+      : null;
     // Que el celular coincida con uno ya "verified" en la tabla NO basta para saltarse el PIN —
     // cualquiera que se sepa el número de otra persona podría reservarle citas a su nombre sin que
     // ella se entere. Solo se salta el PIN si además viene un manageToken válido: la prueba de que
@@ -119,10 +129,10 @@ export function registerPublic(router) {
     const status = skipConfirmation ? "confirmed" : "pending_confirmation";
     await run(env,
       `INSERT INTO appointments (id, business_id, client_id, client_name, client_email, client_phone,
-        specialist_id, service_id, date, start, end, status, confirm_channel, source_code)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        specialist_id, service_id, date, start, end, status, confirm_channel, source_code, deposit_requested, deposit_amount)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       apptId, ctx.business.id, client.id, clientName, clientEmail || null, clientPhone || null,
-      specialistId, serviceId, date, start, end, status, channel, sourceCode || null);
+      specialistId, serviceId, date, start, end, status, channel, sourceCode || null, depositAmount != null ? 1 : 0, depositAmount);
     await scheduleServiceReminders(env, ctx.business.id, apptId, service, date, start);
 
     const appt = await first(env, `SELECT * FROM appointments WHERE id=?`, apptId);

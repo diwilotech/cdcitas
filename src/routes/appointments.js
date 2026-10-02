@@ -84,11 +84,11 @@ export function registerAppointments(router) {
     const appt = await getAppt(env, ctx.business.id, ctx.params.id);
     if (!appt) return notFound();
     const b = await readJson(request);
-    const editable = ["space_id", "paid"];
+    const editable = ["space_id", "paid", "deposit_paid"];
     const present = editable.filter((f) => f in b);
     if (present.length) {
       const setSql = present.map((f) => `${f} = ?`).join(", ");
-      const vals = present.map((f) => (f === "paid" ? (b[f] ? 1 : 0) : b[f]));
+      const vals = present.map((f) => (f === "paid" || f === "deposit_paid" ? (b[f] ? 1 : 0) : b[f]));
       await run(env, `UPDATE appointments SET ${setSql} WHERE business_id=? AND id=?`,
         ...vals, ctx.business.id, appt.id);
     }

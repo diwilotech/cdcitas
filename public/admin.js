@@ -107,7 +107,28 @@ window.AdminShell = (function () {
     document.getElementById("setConfirmWindow").value = biz.confirm_window_hours || 3;
     document.getElementById("setGmailUser").value = biz.gmail_user || "";
     document.getElementById("setGmailAppPassword").value = biz.gmail_app_password || "";
+    document.getElementById("setDepositEnabled").checked = !!biz.deposit_enabled;
+    document.getElementById(biz.deposit_type === "percent" ? "setDepositTypePercent" : "setDepositTypeFixed").checked = true;
+    document.getElementById("setDepositValue").value = biz.deposit_value || 0;
+    document.getElementById("setDepositInstructions").value = biz.deposit_instructions || "";
+    updateDepositValueLabel();
   }
+
+  function updateDepositValueLabel() {
+    const isPercent = document.getElementById("setDepositTypePercent").checked;
+    document.getElementById("setDepositValueLabel").textContent = isPercent ? "Porcentaje (%)" : "Monto ($)";
+  }
+  document.querySelectorAll('input[name="depositType"]').forEach((el) => (el.onchange = updateDepositValueLabel));
+
+  document.getElementById("saveDepositBtn").onclick = async () => {
+    await api("/staff/settings", { method: "PATCH", body: {
+      depositEnabled: document.getElementById("setDepositEnabled").checked,
+      depositType: document.getElementById("setDepositTypePercent").checked ? "percent" : "fixed",
+      depositValue: Math.max(0, parseFloat(document.getElementById("setDepositValue").value) || 0),
+      depositInstructions: document.getElementById("setDepositInstructions").value.trim(),
+    } });
+    toast("Anticipos guardado.");
+  };
 
   document.getElementById("saveWhatsappBtn").onclick = async () => {
     const countryCode = document.getElementById("setWhatsappCountryCode").value.trim().replace(/\D/g, "") || "57";

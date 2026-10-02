@@ -21,7 +21,10 @@ export function registerSettings(router) {
       confirm_window_hours: b.confirmWindowHours, logo_key: b.logoKey,
       card_bio: b.cardBio, card_address: b.cardAddress,
       card_lat: b.cardLat === undefined ? undefined : (b.cardLat === null ? null : Number(b.cardLat)),
-      card_lng: b.cardLng === undefined ? undefined : (b.cardLng === null ? null : Number(b.cardLng)) };
+      card_lng: b.cardLng === undefined ? undefined : (b.cardLng === null ? null : Number(b.cardLng)),
+      deposit_enabled: b.depositEnabled === undefined ? undefined : (b.depositEnabled ? 1 : 0),
+      deposit_type: b.depositType, deposit_value: b.depositValue === undefined ? undefined : Number(b.depositValue),
+      deposit_instructions: b.depositInstructions };
     const present = Object.entries(fields).filter(([, v]) => v !== undefined);
     if (!present.length) return json(ctx.business);
     await run(env, `UPDATE businesses SET ${present.map(([k]) => `${k} = ?`).join(", ")} WHERE id = ?`,
