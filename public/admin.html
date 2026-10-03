@@ -39,15 +39,37 @@
 </header>
 
 <!-- LOGIN -->
-<div id="loginView" class="container">
+<div id="loginView" class="container" style="display:none;">
   <div class="card-panel p-4 mx-auto" style="max-width:400px;">
     <h2 class="h5 fw-bold display-font mb-3">Iniciar sesión</h2>
     <label class="label-xs d-block mb-1">Correo</label>
-    <input type="email" id="loginEmail" class="form-control mb-2">
-    <label class="label-xs d-block mb-1">PIN</label>
-    <input type="password" inputmode="numeric" id="loginPin" maxlength="8" class="form-control mb-3" style="letter-spacing:.4em;text-align:center;">
+    <input type="email" id="loginEmail" class="form-control mb-2" autocomplete="username">
+    <label class="label-xs d-block mb-1">Contraseña</label>
+    <input type="password" id="loginPassword" class="form-control mb-3" autocomplete="current-password">
     <button class="btn btn-brand w-100" id="loginBtn">Entrar</button>
+    <p class="text-muted small text-center mt-3 mb-0">¿Olvidaste tu contraseña? Pide un link nuevo al administrador.</p>
   </div>
+</div>
+
+<!-- CREAR / RESTABLECER CONTRASEÑA (link de invitación) -->
+<div id="inviteView" class="container" style="display:none;">
+  <div class="card-panel p-4 mx-auto" style="max-width:400px;">
+    <h2 class="h5 fw-bold display-font mb-1" id="inviteTitle">Crea tu contraseña</h2>
+    <p class="text-muted small mb-3" id="inviteWho"></p>
+    <input type="email" id="inviteEmail" class="d-none" autocomplete="username">
+    <label class="label-xs d-block mb-1">Tu nombre</label>
+    <input type="text" id="inviteName" class="form-control mb-2" maxlength="100" autocomplete="name">
+    <label class="label-xs d-block mb-1">Contraseña (mínimo 8 caracteres)</label>
+    <input type="password" id="invitePassword" class="form-control mb-2" autocomplete="new-password">
+    <label class="label-xs d-block mb-1">Repite la contraseña</label>
+    <input type="password" id="invitePassword2" class="form-control mb-3" autocomplete="new-password">
+    <button class="btn btn-brand w-100" id="inviteBtn">Guardar y entrar</button>
+  </div>
+</div>
+
+<!-- Suscripción vencida -->
+<div id="readOnlyBar" class="text-center small fw-semibold py-2 px-3" style="display:none;background:#c0472f;color:#fff;">
+  <i class="bi bi-lock-fill me-1"></i>La suscripción del negocio está vencida: puedes consultar, pero no guardar cambios.
 </div>
 
 <!-- APP -->

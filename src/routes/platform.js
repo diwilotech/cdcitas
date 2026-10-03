@@ -1,124 +1,141 @@
 import { all, first, run, uid } from "../lib/db.js";
-import { json, error, readJson } from "../lib/http.js";
-import {
-  createAdminSession, getCookie, adminCookie, clearAdminCookie,
-  requirePlatformAdmin, ADMIN_COOKIE_NAME,
-} from "../lib/auth.js";
-import { hashPin, verifyPin, randomSalt, validatePinFormat } from "../lib/pin.js";
+import { json, error, readJson, notFound } from "../lib/http.js";
+import { resolveBusiness } from "../lib/tenant.js";
+import { requirePlatform, isExpired } from "../lib/auth.js";
+import { DEFAULT_TEMPLATES } from "../lib/templates.js";
+import { createInvite } from "./auth.js";
 
-// Cuenta única de super admin de la plataforma: la primera persona en entrar se registra desde
-// /setup.html; una vez que existe, /api/admin/register queda cerrado y solo sirve el login. Solo
-// el super admin puede crear negocios nuevos (ver /api/setup en routes/setup.js).
+// Plataforma: Diwilo Web es el único panel que crea negocios, invita usuarios y fija hasta cuándo
+// está paga la suscripción (businesses.paid_until). Autenticado con "Authorization: Bearer
+// PLATFORM_KEY". Contrato común a las apps de Diwilo (pedidos, nutrición, citas):
+//   GET    /api/platform/businesses
+//   POST   /api/platform/businesses                 { name, slug, owner_email, owner_name?, paid_until }
+//   GET    /api/platform/businesses/:id
+//   PATCH  /api/platform/businesses/:id             { name?, paid_until? }
+//   POST   /api/platform/businesses/:id/users       { email, name?, role: owner|staff } -> invite_path
+//   DELETE /api/platform/businesses/:id/users/:userId
+
+// El negocio vive en /:slug (reserva) y /:slug/admin (panel) — estas palabras ya son rutas del
+// sistema y no se pueden usar como slug (ver el ruteo de /:slug en src/index.js).
+const RESERVED_SLUGS = new Set(["admin", "api", "setup", "app", "styles", "t", "platform"]);
+
+// Tipos de espacio con los que arranca todo negocio nuevo (después son editables en Reglas).
+const DEFAULT_SPACE_TYPES = [
+  { key: "general", label: "General" },
+  { key: "barra", label: "Barra" },
+  { key: "privado", label: "Privado / VIP" },
+  { key: "terraza", label: "Terraza" },
+];
+
+const invitePath = (slug, token) => `/${slug}/admin#invite=${token}`;
+const validDate = (v) => v === null || (/^\d{4}-\d{2}-\d{2}$/.test(String(v)) && !Number.isNaN(Date.parse(v)));
+const normEmail = (e) => String(e || "").trim().toLowerCase();
+const validEmail = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
+
+async function listBusinesses(env, id) {
+  const where = id ? "WHERE id=?" : "";
+  const args = id ? [id] : [];
+  const [businesses, users] = await Promise.all([
+    all(env, `SELECT id, slug, name, created_at, paid_until FROM businesses ${where} ORDER BY created_at`, ...args),
+    all(env, `SELECT id, business_id, email, name, role, pin_hash IS NOT NULL AS has_password FROM users
+              ${id ? "WHERE business_id=?" : ""} ORDER BY role, name`, ...args),
+  ]);
+  return businesses.map((b) => ({
+    id: b.id,
+    name: b.name,
+    slug: b.slug,
+    created_at: String(b.created_at).replace(" ", "T") + (String(b.created_at).endsWith("Z") ? "" : "Z"),
+    paid_until: b.paid_until || null,
+    read_only: isExpired(b.paid_until),
+    users: users.filter((u) => u.business_id === b.id).map((u) => ({
+      id: u.id, email: u.email, name: u.name, role: u.role,
+      status: u.has_password ? "active" : "invited",
+      invite_path: null, // solo se guarda el hash: se ve al generarlo
+    })),
+  }));
+}
+
 export function registerPlatform(router) {
-  router.get("/api/admin/status", async (request, env) => {
-    const admin = await first(env, `SELECT id FROM platform_admins LIMIT 1`);
-    return json({ hasAdmin: !!admin });
-  });
+  const guarded = (handler) => async (request, env, ctx) => (await requirePlatform(request, env)) || handler(request, env, ctx);
 
-  router.post("/api/admin/register", async (request, env) => {
-    const existing = await first(env, `SELECT id FROM platform_admins LIMIT 1`);
-    if (existing) return error("Ya existe un super admin registrado. Inicia sesión.", 409);
+  router.get("/api/platform/businesses", guarded(async (request, env) =>
+    json({ businesses: await listBusinesses(env) })));
 
-    const { email, name, pin } = await readJson(request);
-    if (!email || !name) return error("Faltan correo y nombre.");
-    if (!validatePinFormat(pin)) return error("El PIN debe tener entre 4 y 8 dígitos.");
+  // Crea un negocio (tenant) con su dueño, sus plantillas de mensajes y un espacio inicial.
+  router.post("/api/platform/businesses", guarded(async (request, env) => {
+    const body = await readJson(request);
+    const slug = String(body.slug || "").trim().toLowerCase();
+    const name = String(body.name || "").trim();
+    const ownerEmail = normEmail(body.owner_email);
+    if (!/^[a-z0-9-]{3,40}$/.test(slug)) return error("El slug debe tener 3-40 caracteres: minúsculas, números o guiones.");
+    if (RESERVED_SLUGS.has(slug)) return error("Ese slug está reservado, elige otro.");
+    if (!name) return error("Falta el nombre del negocio.");
+    if (!validEmail(ownerEmail)) return error("Correo del dueño inválido.");
+    if (!validDate(body.paid_until ?? null)) return error("Fecha de pago inválida.");
+    if (await resolveBusiness(env, slug)) return error("Ese slug ya está en uso.", 409);
 
-    const id = uid();
-    const salt = randomSalt();
-    await run(env, `INSERT INTO platform_admins (id, email, name, pin_hash, pin_salt) VALUES (?,?,?,?,?)`,
-      id, String(email).trim().toLowerCase(), name, await hashPin(pin, salt), salt);
+    const businessId = uid();
+    const userId = uid();
+    const stmts = [
+      env.DB.prepare(`INSERT INTO businesses (id, slug, name, webhook_token, paid_until) VALUES (?,?,?,?,?)`)
+        .bind(businessId, slug, name, uid(), body.paid_until ?? null),
+      env.DB.prepare(`INSERT INTO users (id, business_id, email, phone, name, role) VALUES (?,?,?,?,?,'owner')`)
+        .bind(userId, businessId, ownerEmail, body.owner_phone || null, String(body.owner_name || "").trim() || ownerEmail.split("@")[0]),
+      ...Object.entries(DEFAULT_TEMPLATES).map(([key, tplBody]) =>
+        env.DB.prepare(`INSERT INTO message_templates (id, business_id, key, body) VALUES (?,?,?,?)`).bind(uid(), businessId, key, tplBody)),
+      ...DEFAULT_SPACE_TYPES.map((t) =>
+        env.DB.prepare(`INSERT INTO space_types (id, business_id, key, label) VALUES (?,?,?,?)`).bind(uid(), businessId, t.key, t.label)),
+      env.DB.prepare(`INSERT INTO spaces (id, business_id, label, type, shape, capacity, x, y, w, h) VALUES (?,?,'General','general','square',4,0,0,3,3)`)
+        .bind(uid(), businessId),
+    ];
+    await env.DB.batch(stmts);
+    const token = await createInvite(env, userId);
+    return json({ id: businessId, slug, invite_path: invitePath(slug, token) }, { status: 201 });
+  }));
 
-    const token = await createAdminSession(env, id);
-    return json({ email, name }, { status: 201, headers: { "set-cookie": adminCookie(token) } });
-  });
+  router.get("/api/platform/businesses/:id", guarded(async (request, env, ctx) => {
+    const [b] = await listBusinesses(env, ctx.params.id);
+    return b ? json(b) : notFound();
+  }));
 
-  router.post("/api/admin/login", async (request, env) => {
-    const { email, pin } = await readJson(request);
-    const admin = await first(env, `SELECT * FROM platform_admins WHERE email=?`,
-      String(email || "").trim().toLowerCase());
-    if (!admin || !(await verifyPin(pin, admin.pin_salt, admin.pin_hash))) {
-      return error("Correo o PIN incorrecto.", 401);
-    }
-
-    const token = await createAdminSession(env, admin.id);
-    return json({ email: admin.email, name: admin.name }, { headers: { "set-cookie": adminCookie(token) } });
-  });
-
-  router.post("/api/admin/logout", async (request, env) => {
-    const token = getCookie(request, ADMIN_COOKIE_NAME);
-    if (token) await run(env, `DELETE FROM admin_sessions WHERE id=?`, token);
-    return json({ ok: true }, { headers: { "set-cookie": clearAdminCookie() } });
-  });
-
-  router.get("/api/admin/me", async (request, env, ctx) => {
-    const denied = await requirePlatformAdmin(request, env, ctx);
-    if (denied) return denied;
-    return json({ email: ctx.admin.email, name: ctx.admin.name });
-  });
-
-  router.get("/api/admin/businesses", async (request, env, ctx) => {
-    const denied = await requirePlatformAdmin(request, env, ctx);
-    if (denied) return denied;
-    return json(await all(env, `SELECT id, slug, name, whatsapp_enabled, created_at FROM businesses ORDER BY created_at DESC`));
-  });
-
-  // Detalle de un negocio para el super admin: usuarios, servicios y especialistas.
-  router.get("/api/admin/businesses/:id", async (request, env, ctx) => {
-    const denied = await requirePlatformAdmin(request, env, ctx);
-    if (denied) return denied;
-    const business = await first(env, `SELECT * FROM businesses WHERE id=?`, ctx.params.id);
-    if (!business) return error("Negocio no encontrado.", 404);
-    const [users, services, specialists] = await Promise.all([
-      all(env, `SELECT id, email, name, role, phone, pin_hash, created_at FROM users WHERE business_id=? ORDER BY created_at`, business.id),
-      all(env, `SELECT id, name, duration_min, price FROM services WHERE business_id=?`, business.id),
-      all(env, `SELECT id, name FROM specialists WHERE business_id=?`, business.id),
-    ]);
-    return json({ business, users, services, specialists });
-  });
-
-  // Agrega un usuario (dueño o personal) a un negocio existente.
-  router.post("/api/admin/businesses/:id/users", async (request, env, ctx) => {
-    const denied = await requirePlatformAdmin(request, env, ctx);
-    if (denied) return denied;
-    const business = await first(env, `SELECT id FROM businesses WHERE id=?`, ctx.params.id);
-    if (!business) return error("Negocio no encontrado.", 404);
-
-    const { email, name, pin, role, phone } = await readJson(request);
-    if (!email || !name) return error("Faltan correo y nombre.");
-    if (!validatePinFormat(pin)) return error("El PIN debe tener entre 4 y 8 dígitos.");
-
-    const id = uid();
-    const salt = randomSalt();
-    await run(env,
-      `INSERT INTO users (id, business_id, email, phone, name, role, pin_hash, pin_salt) VALUES (?,?,?,?,?,?,?,?)`,
-      id, business.id, String(email).trim().toLowerCase(), phone || null, name, role === "owner" ? "owner" : "staff",
-      await hashPin(pin, salt), salt);
-    return json({ id }, { status: 201 });
-  });
-
-  // Cambia el tipo de usuario (dueño/personal) y/o le asigna un PIN nuevo dentro de un negocio
-  // (también sirve para ponerle PIN a usuarios creados antes de que existiera el login por PIN).
-  router.patch("/api/admin/businesses/:id/users/:userId", async (request, env, ctx) => {
-    const denied = await requirePlatformAdmin(request, env, ctx);
-    if (denied) return denied;
-    const { role, pin } = await readJson(request);
-
-    const fields = {};
-    if (role !== undefined) {
-      if (role !== "owner" && role !== "staff") return error("role debe ser 'owner' o 'staff'.");
-      fields.role = role;
-    }
-    if (pin !== undefined) {
-      if (!validatePinFormat(pin)) return error("El PIN debe tener entre 4 y 8 dígitos.");
-      const salt = randomSalt();
-      fields.pin_hash = await hashPin(pin, salt);
-      fields.pin_salt = salt;
-    }
-    const cols = Object.keys(fields);
-    if (!cols.length) return error("Nada que actualizar (manda role y/o pin).");
-
-    await run(env, `UPDATE users SET ${cols.map((c) => `${c}=?`).join(", ")} WHERE id=? AND business_id=?`,
-      ...cols.map((c) => fields[c]), ctx.params.userId, ctx.params.id);
+  router.patch("/api/platform/businesses/:id", guarded(async (request, env, ctx) => {
+    const body = await readJson(request);
+    if (!(await first(env, `SELECT 1 FROM businesses WHERE id=?`, ctx.params.id))) return notFound();
+    if (body.name !== undefined && !String(body.name).trim()) return error("Nombre vacío.");
+    if (body.paid_until !== undefined && !validDate(body.paid_until)) return error("Fecha de pago inválida.");
+    const stmts = [];
+    if (body.name !== undefined) stmts.push(env.DB.prepare(`UPDATE businesses SET name=? WHERE id=?`).bind(String(body.name).trim(), ctx.params.id));
+    if (body.paid_until !== undefined) stmts.push(env.DB.prepare(`UPDATE businesses SET paid_until=? WHERE id=?`).bind(body.paid_until, ctx.params.id));
+    if (stmts.length) await env.DB.batch(stmts);
     return json({ ok: true });
-  });
+  }));
+
+  // Agrega un usuario (dueño o personal) o, si ya existe, le genera un link nuevo para crear o
+  // restablecer su contraseña (y le actualiza el rol).
+  router.post("/api/platform/businesses/:id/users", guarded(async (request, env, ctx) => {
+    const business = await first(env, `SELECT id, slug FROM businesses WHERE id=?`, ctx.params.id);
+    if (!business) return notFound();
+    const { email, name, role, phone } = await readJson(request);
+    const mail = normEmail(email);
+    if (!validEmail(mail)) return error("Correo inválido.");
+    const userRole = role === "owner" ? "owner" : "staff";
+    let user = await first(env, `SELECT id FROM users WHERE business_id=? AND email=?`, business.id, mail);
+    if (user) {
+      await run(env, `UPDATE users SET role=? WHERE id=?`, userRole, user.id);
+    } else {
+      user = { id: uid() };
+      await run(env, `INSERT INTO users (id, business_id, email, phone, name, role) VALUES (?,?,?,?,?,?)`,
+        user.id, business.id, mail, phone || null, String(name || "").trim() || mail.split("@")[0], userRole);
+    }
+    const token = await createInvite(env, user.id);
+    return json({ id: user.id, invite_path: invitePath(business.slug, token) }, { status: 201 });
+  }));
+
+  router.delete("/api/platform/businesses/:id/users/:userId", guarded(async (request, env, ctx) => {
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM sessions WHERE business_id=? AND user_id=?`).bind(ctx.params.id, ctx.params.userId),
+      env.DB.prepare(`DELETE FROM users WHERE business_id=? AND id=?`).bind(ctx.params.id, ctx.params.userId),
+    ]);
+    return json({ ok: true });
+  }));
 }

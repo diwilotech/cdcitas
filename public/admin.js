@@ -48,23 +48,63 @@ window.AdminShell = (function () {
   }
 
   async function boot() {
+    // Link de invitación: /:slug/admin#invite=<token> (en el fragmento, no queda en logs).
+    const invite = new URLSearchParams(location.hash.slice(1)).get("invite");
+    if (invite) return showInvite(invite);
     try {
-      const me = await api("/staff/me");
-      showApp(me);
+      showApp(await api("/staff/me"));
     } catch {
-      document.getElementById("loginView").style.display = "block";
+      showLogin();
     }
+  }
+
+  function showLogin() {
+    document.getElementById("inviteView").style.display = "none";
+    document.getElementById("loginView").style.display = "block";
+  }
+
+  // Crear (o restablecer) la contraseña con el token del link.
+  async function showInvite(token, notice) {
+    let info;
+    try {
+      info = await api(`/auth/invite?token=${encodeURIComponent(token)}`);
+    } catch (e) {
+      toast(e.message, false);
+      history.replaceState(null, "", location.pathname);
+      return showLogin();
+    }
+    document.getElementById("loginView").style.display = "none";
+    document.getElementById("inviteView").style.display = "block";
+    document.getElementById("inviteTitle").textContent = info.reset ? "Nueva contraseña" : "Crea tu contraseña";
+    document.getElementById("inviteWho").textContent = notice || info.email;
+    document.getElementById("inviteEmail").value = info.email;
+    document.getElementById("inviteName").value = info.name || "";
+    document.getElementById("inviteBtn").onclick = async () => {
+      const password = document.getElementById("invitePassword").value;
+      if (password.length < 8) return toast("La contraseña debe tener al menos 8 caracteres.", false);
+      if (password !== document.getElementById("invitePassword2").value) return toast("Las contraseñas no coinciden.", false);
+      try {
+        await api("/auth/invite", { method: "POST", body: { token, password, name: document.getElementById("inviteName").value.trim() } });
+        history.replaceState(null, "", location.pathname);
+        document.getElementById("inviteView").style.display = "none";
+        showApp(await api("/staff/me"));
+      } catch (e) { toast(e.message, false); }
+    };
   }
 
   document.getElementById("loginBtn").onclick = async () => {
     const email = document.getElementById("loginEmail").value.trim();
-    const pin = document.getElementById("loginPin").value.trim();
-    if (!email || !pin) return toast("Escribe tu correo y tu PIN.", false);
+    const password = document.getElementById("loginPassword").value;
+    if (!email || !password) return toast("Escribe tu correo y tu contraseña.", false);
     try {
-      const { user } = await api("/auth/login", { method: "POST", body: { email, pin } });
-      showApp(user);
+      const r = await api("/auth/login", { method: "POST", body: { email, password } });
+      if (r.mustSetPassword) return showInvite(r.invite, "El PIN ya no se usa: crea una contraseña para seguir.");
+      showApp(await api("/staff/me"));
     } catch (e) { toast(e.message, false); }
   };
+  document.getElementById("loginPassword").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("loginBtn").click();
+  });
 
   document.getElementById("logoutBtn").onclick = async () => {
     await api("/auth/logout", { method: "POST" });
@@ -73,6 +113,7 @@ window.AdminShell = (function () {
 
   function showApp(user) {
     document.getElementById("loginView").style.display = "none";
+    document.getElementById("readOnlyBar").style.display = user.readOnly ? "block" : "none";
     document.getElementById("appView").style.display = "block";
     document.getElementById("userMenu").style.display = "block";
     document.getElementById("userNameSmall").textContent = user.name || user.email || "Usuario";

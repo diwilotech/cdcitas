@@ -13,14 +13,17 @@ Sin frameworks ni bundler: JavaScript plano en módulos ES, para que sea fácil 
 - **Evolution API** (WhatsApp) corre en **tu propio servidor**, no en Cloudflare — Workers no
   puede alojar procesos persistentes tipo Baileys. El Worker solo le hace peticiones HTTP
   (`src/lib/whatsapp.js`), para avisos de citas (agendada/cancelada/reagendar/mover/reabrir).
-- **Login con correo + PIN**: tanto el super admin de la plataforma como el personal de cada
-  negocio entran con su correo y un PIN de 4-8 dígitos (hasheado con salt, `src/lib/pin.js`), sin
-  pasos intermedios ni proveedor de correo.
-- **Super admin de la plataforma**: es quien puede crear negocios nuevos, ver todos los negocios
-  (con sus servicios y especialistas) y administrar sus usuarios, incluyendo cambiar el tipo
-  (dueño/personal) de cualquiera. Vive en `/admin` — la primera vez que se visita no existe
-  todavía, así que la página pide registrarlo (correo + PIN); de ahí en adelante pide iniciar
-  sesión con esa cuenta antes de mostrar el panel (`src/routes/platform.js`).
+- **Login con correo + contraseña**: el personal de cada negocio entra en `/:slug/admin` con su
+  correo y una contraseña de mínimo 8 caracteres (PBKDF2 con salt, `src/lib/password.js`). Los PIN
+  de antes entran una última vez y piden crear la contraseña.
+- **Diwilo Web maneja la plataforma**: crear negocios, invitar dueños y personal, y la suscripción
+  se hacen desde `diwilo.com/admin`, que llama a `/api/platform/*` con
+  `Authorization: Bearer PLATFORM_KEY` (`src/routes/platform.js`). Cada invitación es un link
+  `/:slug/admin#invite=<token>` para crear (o restablecer) la contraseña. Ya no hay super admin
+  propio en `/admin`.
+- **Suscripción**: `businesses.paid_until` (`YYYY-MM-DD`; vacío = sin límite). Si la fecha ya pasó,
+  el negocio queda en **solo lectura**: el panel no guarda cambios y la reserva pública no acepta
+  citas nuevas (402). El login y el webhook de WhatsApp siguen funcionando.
 - **WhatsApp por negocio**: cada negocio puede prender/apagar el envío de avisos por WhatsApp y
   tiene su propio link de webhook para pegar en Evolution API (Ajustes → WhatsApp en el panel del
   negocio, `src/routes/webhook.js`).
@@ -30,10 +33,10 @@ Sin frameworks ni bundler: JavaScript plano en módulos ES, para que sea fácil 
 ```
 src/
   index.js            Punto de entrada: rutas bonitas (/:slug, /:slug/admin, /admin) + despacho de la API
-  lib/                 Código compartido: router, D1, auth, PIN, WhatsApp, plantillas, CRUD genérico
-  routes/               Un archivo por grupo de endpoints (platform.js = super admin)
+  lib/                 Código compartido: router, D1, auth, contraseñas, WhatsApp, plantillas, CRUD genérico
+  routes/               Un archivo por grupo de endpoints (platform.js = API para Diwilo Web)
 public/                Frontend (HTML+JS+CSS planos, sin build)
-migrations/                Esquema (0001 inicial, 0002 login por PIN + super admin, 0003 WhatsApp on/off + webhook)
+migrations/                Esquema (0001 inicial … 0031 plataforma Diwilo: suscripción + invitaciones)
 ```
 
 `src/lib/crud.js` + `src/lib/db.js#makeResource` generan las rutas CRUD de servicios,
@@ -54,6 +57,12 @@ npm run deploy
 Si en el futuro agregas una migración nueva (`migrations/0002_*.sql`), aplícala con:
 ```bash
 npm run db:migrate:remote
+```
+
+### Clave de Diwilo Web (secreto, no va en el repo)
+
+```bash
+npx wrangler secret put PLATFORM_KEY   # el mismo valor que en Diwilo Web
 ```
 
 ### Conectar Evolution API (secretos, no van en el repo)
@@ -90,10 +99,9 @@ npm run db:migrate:remote
 
 ## Crear el primer negocio
 
-Visita `/admin`. La primera vez te pide registrar la cuenta de super admin (nombre, correo, PIN);
-después de eso, esa misma pantalla pide iniciar sesión con esa cuenta y ahí sí llena el
-formulario del negocio (nombre, slug, dueño y su PIN) — te da dos enlaces: la página de reservas
-del cliente (`/tu-negocio`) y el panel de administración (`/tu-negocio/admin`).
+En Diwilo Web → **Negocios → Citas → Nuevo negocio** (nombre, slug y correo del dueño). Diwilo
+devuelve el link de invitación para el dueño; al abrirlo crea su contraseña y entra a
+`/tu-negocio/admin`. La página de reservas del cliente queda en `/tu-negocio`.
 
 ## Qué falta / roadmap
 
@@ -102,6 +110,6 @@ avisar por WhatsApp), deliberadamente simple. Lo que quedó fuera para no compli
 
 - Editor visual de plano del local (arrastrar mesas) — hoy los espacios se crean con un formulario.
 - Vista de agenda tipo línea de tiempo — hoy es una lista cronológica del día.
-- Recuperar/reset de PIN olvidado (hoy no hay forma de resetearlo salvo a mano en D1) y Google OAuth.
+- Que el dueño invite a su propio personal desde el panel del negocio (hoy se hace desde Diwilo Web) y Google OAuth.
 - Panel de "no-show" automático (marcar inasistencia).
-- Cobro/planes por negocio.
+- Pasarela de pago para la suscripción (hoy el pago se registra a mano en Diwilo Web).

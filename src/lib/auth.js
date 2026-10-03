@@ -1,5 +1,6 @@
 import { first, run, uid, nowIso } from "./db.js";
 import { unauthorized } from "./http.js";
+import { sha256Hex, timingSafeEqual } from "./password.js";
 
 const SESSION_DAYS = 30;
 
@@ -9,8 +10,7 @@ export function getCookie(request, name) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-// Fábrica de sesiones por cookie: la usan tanto las sesiones de personal de un negocio como las
-// del super admin de la plataforma, para no repetir la lógica de cookie/expiración dos veces.
+// Fábrica de sesiones por cookie (personal de un negocio).
 function sessionKit(cookieName, table, ownerColumn) {
   const cookie = (token, days = SESSION_DAYS) =>
     `${cookieName}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${days * 86400}`;
@@ -28,17 +28,12 @@ function sessionKit(cookieName, table, ownerColumn) {
 }
 
 const staffKit = sessionKit("cdc_session", "sessions", "user_id");
-const adminKit = sessionKit("cdc_admin", "admin_sessions", "admin_id");
 
 export const SESSION_COOKIE_NAME = staffKit.cookieName;
 export const sessionCookie = staffKit.cookie;
 export const clearSessionCookie = staffKit.clear;
 export const createSession = (env, userId, businessId) => staffKit.create(env, userId, { business_id: businessId });
 
-export const ADMIN_COOKIE_NAME = adminKit.cookieName;
-export const adminCookie = adminKit.cookie;
-export const clearAdminCookie = adminKit.clear;
-export const createAdminSession = (env, adminId) => adminKit.create(env, adminId);
 
 // Middleware: exige sesión válida de personal para el negocio actual (ctx.business ya resuelto).
 export async function requireStaff(request, env, ctx) {
@@ -54,16 +49,15 @@ export async function requireStaff(request, env, ctx) {
   return null; // null = sigue adelante
 }
 
-// Middleware: exige sesión válida del super admin de la plataforma (para crear/listar negocios).
-export async function requirePlatformAdmin(request, env, ctx) {
-  const token = getCookie(request, ADMIN_COOKIE_NAME);
-  if (!token) return unauthorized();
-  const session = await first(env,
-    `SELECT s.*, a.email, a.name FROM admin_sessions s
-     JOIN platform_admins a ON a.id = s.admin_id
-     WHERE s.id = ? AND s.expires_at > ?`,
-    token, nowIso());
-  if (!session) return unauthorized();
-  ctx.admin = session;
+// Middleware: Diwilo Web (crea negocios, invita usuarios, maneja suscripciones) se autentica con
+// "Authorization: Bearer PLATFORM_KEY" — el mismo secreto en los dos proyectos.
+export async function requirePlatform(request, env) {
+  const key = env.PLATFORM_KEY;
+  const auth = request.headers.get("authorization") || "";
+  if (!key || !timingSafeEqual(await sha256Hex(auth), await sha256Hex(`Bearer ${key}`))) return unauthorized();
   return null;
 }
+
+// Suscripción: businesses.paid_until ('YYYY-MM-DD', inclusive) lo fija Diwilo Web. NULL = sin límite.
+const todayBogota = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
+export const isExpired = (paidUntil) => !!paidUntil && paidUntil < todayBogota();

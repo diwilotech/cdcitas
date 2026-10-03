@@ -1,9 +1,8 @@
 import { Router } from "./lib/router.js";
-import { json, notFound } from "./lib/http.js";
+import { json, error, notFound } from "./lib/http.js";
 import { resolveBusiness } from "./lib/tenant.js";
-import { requireStaff } from "./lib/auth.js";
+import { requireStaff, isExpired } from "./lib/auth.js";
 
-import { registerSetup } from "./routes/setup.js";
 import { registerPlatform } from "./routes/platform.js";
 import { registerAuth } from "./routes/auth.js";
 import { registerPublic } from "./routes/public.js";
@@ -21,8 +20,7 @@ import { sendDueReminders } from "./lib/reminders.js";
 import { releaseExpiredPending } from "./lib/confirm.js";
 
 const router = new Router();
-registerSetup(router);
-registerPlatform(router);
+registerPlatform(router); // primero: /api/platform/... no debe caer en una ruta /api/:slug/...
 registerAuth(router);
 registerPublic(router);
 registerAppointments(router);
@@ -37,7 +35,7 @@ registerTreatments(router);
 registerCard(router);
 
 // Sirve un archivo estático concreto a través del binding de assets (para las rutas bonitas
-// /:slug, /:slug/admin y /admin, que no existen como archivo real).
+// /:slug y /:slug/admin, que no existen como archivo real).
 function serveAsset(env, request, file) {
   const url = new URL(request.url);
   url.pathname = file;
@@ -51,10 +49,8 @@ export default {
     if (!url.pathname.startsWith("/api/")) {
       const parts = url.pathname.split("/").filter(Boolean);
 
-      // /admin (sin negocio) -> panel del super admin (setup.html administra negocios/usuarios).
-      if (parts.length === 1 && parts[0] === "admin") {
-        return serveAsset(env, request, "/setup");
-      }
+      // /admin (sin negocio): ya no hay super admin propio — los negocios se crean en Diwilo Web.
+      if (parts.length === 1 && parts[0] === "admin") return notFound();
 
       // /:slug -> reserva del cliente, /:slug/admin -> panel de personal de ese negocio. Un slug
       // se distingue de un archivo real (styles.css, app.js, favicon.ico...) probando primero
@@ -77,11 +73,21 @@ export default {
 
     const ctx = { params: match.params };
 
-    // Todas las rutas menos /api/setup son de un negocio (tenant) identificado por :slug.
+    // Todas las rutas menos /api/platform son de un negocio (tenant) identificado por :slug.
     if (match.params.slug) {
       const business = await resolveBusiness(env, match.params.slug);
       if (!business) return json({ error: "Negocio no encontrado." }, { status: 404 });
       ctx.business = business;
+
+      // Suscripción vencida (businesses.paid_until, la fija Diwilo Web): solo lectura para el panel
+      // y para la reserva pública. El login y el webhook de WhatsApp siguen funcionando.
+      const sub = url.pathname.slice(`/api/${match.params.slug}`.length);
+      const writes = request.method !== "GET" && (sub.startsWith("/staff/") || (sub.startsWith("/public/") && sub !== "/public/card/track"));
+      if (writes && isExpired(business.paid_until)) {
+        return error(sub.startsWith("/staff/")
+          ? "La suscripción del negocio está vencida: solo lectura."
+          : "Las reservas en línea no están disponibles en este momento.", 402);
+      }
 
       // Todo lo que vive bajo /api/:slug/staff/ exige sesión de personal.
       if (url.pathname.startsWith(`/api/${match.params.slug}/staff/`)) {

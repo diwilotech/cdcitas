@@ -1,4 +1,4 @@
-// Cliente de API compartido por index.html (reserva pública), admin.html y setup.html. Todo va
+// Cliente de API compartido por index.html (reserva pública), y admin.html. Todo va
 // envuelto en un IIFE para no dejar `api`/`toast`/`tenantSlug` como identificadores globales: las
 // páginas que consumen esto hacen `const { api, toast } = window.CDC`, y si esos mismos nombres
 // quedaran declarados sueltos acá, el navegador tira "Identifier ya declarado" y el script entero
@@ -28,10 +28,6 @@
     return request(`/api/${slug}${path}`, opts);
   }
 
-  // Endpoints que no son de un negocio (el super admin de la plataforma: /api/admin/...).
-  async function apiRoot(path, opts = {}) {
-    return request(`/api${path}`, opts);
-  }
 
   function toast(msg, ok = true) {
     let el = document.getElementById("toast");
@@ -180,7 +176,7 @@
   }
 
   window.CDC = {
-    api, apiRoot, tenantSlug, toast,
+    api, tenantSlug, toast,
     timeToMin, minToHHMM, todayISO, dateToISO, formatAMPM, formatHourAMPM, formatDateHuman,
     layoutOverlaps, effectiveHours, renderColorPicker, colorAlpha, colorDarken, haversineKm,
   };
