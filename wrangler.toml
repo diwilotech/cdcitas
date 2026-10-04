@@ -10,11 +10,12 @@ directory = "./public"
 binding = "ASSETS"
 # Por defecto, si la URL calza con un archivo real, Cloudflare lo sirve directo sin pasar por el
 # Worker. "/admin" calza con admin.html (el panel de un negocio) por la resolución sin extensión,
-# así que necesita pasar primero por el Worker, que responde 404: sin negocio no hay panel (los
-# negocios se crean desde Diwilo Web, ver src/routes/platform.js).
+# así que necesita pasar primero por el Worker, que lo manda al login general de la raíz. "/" también
+# pasa por el Worker (muestra login.html en vez de la reserva) y "/login" redirige a "/". Los
+# negocios se crean desde Diwilo Web, ver src/routes/platform.js.
 #
 # Secreto (wrangler secret put PLATFORM_KEY): clave compartida con Diwilo Web para /api/platform/*.
-run_worker_first = ["/admin"]
+run_worker_first = ["/", "/admin", "/login"]
 
 [[d1_databases]]
 binding = "DB"

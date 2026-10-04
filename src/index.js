@@ -49,9 +49,12 @@ export default {
     if (!url.pathname.startsWith("/api/")) {
       const parts = url.pathname.split("/").filter(Boolean);
 
-      // /admin (sin negocio) -> login general: entra con correo y contraseña y va a su negocio.
-      // (Ya no hay super admin propio: los negocios se crean en Diwilo Web.)
-      if (parts.length === 1 && parts[0] === "admin") return Response.redirect(new URL("/login", url), 302);
+      // Raíz -> login general (public/login.html): entra con correo y contraseña y va a su negocio.
+      // Con ?t=<slug> sigue siendo la reserva del cliente (forma vieja de los links de reserva).
+      if (parts.length === 0 && !url.searchParams.get("t")) return serveAsset(env, request, "/login");
+      // /login y /admin (sin negocio) -> a la raíz. (Ya no hay super admin propio: los negocios se
+      // crean en Diwilo Web.)
+      if (parts.length === 1 && (parts[0] === "admin" || parts[0] === "login")) return Response.redirect(new URL("/", url), 302);
 
       // /:slug -> reserva del cliente, /:slug/admin -> panel de personal de ese negocio. Un slug
       // se distingue de un archivo real (styles.css, app.js, favicon.ico...) probando primero
