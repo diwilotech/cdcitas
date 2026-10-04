@@ -8,6 +8,8 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.3/cropper.min.css" rel="stylesheet">
 <link href="/styles.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500&display=swap" rel="stylesheet">
+<link href="/diwilo-login.css" rel="stylesheet">
 </head>
 <body class="pb-5">
 
@@ -38,33 +40,53 @@
   </div>
 </header>
 
-<!-- LOGIN -->
-<div id="loginView" class="container" style="display:none;">
-  <div class="card-panel p-4 mx-auto" style="max-width:400px;">
-    <h2 class="h5 fw-bold display-font mb-3">Iniciar sesión</h2>
-    <label class="label-xs d-block mb-1">Correo</label>
-    <input type="email" id="loginEmail" class="form-control mb-2" autocomplete="username">
-    <label class="label-xs d-block mb-1">Contraseña</label>
-    <input type="password" id="loginPassword" class="form-control mb-3" autocomplete="current-password">
-    <button class="btn btn-brand w-100" id="loginBtn">Entrar</button>
-    <p class="text-muted small text-center mt-3 mb-0">¿Olvidaste tu contraseña? Pide un link nuevo al administrador.</p>
-  </div>
-</div>
+<!-- INGRESO: banner de Diwilo + tarjeta con los colores de la app (estilos en /diwilo-login.css) -->
+<div id="authShell" class="dl-shell" style="display:none;--dl-accent:#0f5257;--dl-accent-2:#1a8a8f;--dl-m1:hsla(270,45%,74%,1);--dl-m2:hsla(180,45%,58%,1);--dl-m3:hsla(40,95%,72%,1);--dl-m4:hsla(22,85%,68%,1)">
+  <aside class="dl-brand">
+    <a class="dl-logo" href="https://diwilo.com" target="_blank" rel="noopener"><svg viewBox="18 14 168 172" aria-hidden="true"><defs><linearGradient id="dwl" gradientUnits="userSpaceOnUse" x1="30" y1="20" x2="170" y2="180"><stop offset="0" stop-color="#F3E8FF"/><stop offset="1" stop-color="#A78BFA"/></linearGradient></defs><g fill="none" stroke="url(#dwl)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"><path d="M48 72V146Q48 170 72 170H84"/><path d="M156.6 135A70 70 0 0 0 96 30H86"/><path d="M84 134V124Q84 108 100 108H124"/></g><g fill="url(#dwl)"><circle cx="48" cy="34" r="13"/><circle cx="112" cy="72" r="13"/><circle cx="125.6" cy="163.4" r="13"/></g></svg>Diwilo</a>
+    <div class="dl-hero">
+      <span class="dl-chip"><i class="bi bi-calendar2-check"></i>Control de Citas · una app de Diwilo</span>
+      <h1>Tu agenda llena, sin llamadas ni enredos.</h1>
+      <p>Reservas en línea, agenda del equipo, espacios y recordatorios por WhatsApp.</p>
+      <ul class="dl-points"><li>Tus clientes reservan solos, a cualquier hora</li><li>Confirmaciones y recordatorios automáticos</li><li>Cada especialista con su propia agenda</li></ul>
+    </div>
+    <div class="dl-foot">¿Necesitas ayuda? <a href="https://wa.me/573053840193" target="_blank" rel="noopener">Escríbenos por WhatsApp</a><br>© Diwilo · <a href="https://diwilo.com" target="_blank" rel="noopener">diwilo.com</a></div>
+    <span class="dl-m">una app de Diwilo</span>
+  </aside>
+  <main class="dl-side">
+    <div class="dl-card">
+      <div class="dl-icon" id="authLogo"><i class="bi bi-calendar2-check"></i></div>
 
-<!-- CREAR / RESTABLECER CONTRASEÑA (link de invitación) -->
-<div id="inviteView" class="container" style="display:none;">
-  <div class="card-panel p-4 mx-auto" style="max-width:400px;">
-    <h2 class="h5 fw-bold display-font mb-1" id="inviteTitle">Crea tu contraseña</h2>
-    <p class="text-muted small mb-3" id="inviteWho"></p>
-    <input type="email" id="inviteEmail" class="d-none" autocomplete="username">
-    <label class="label-xs d-block mb-1">Tu nombre</label>
-    <input type="text" id="inviteName" class="form-control mb-2" maxlength="100" autocomplete="name">
-    <label class="label-xs d-block mb-1">Contraseña (mínimo 8 caracteres)</label>
-    <input type="password" id="invitePassword" class="form-control mb-2" autocomplete="new-password">
-    <label class="label-xs d-block mb-1">Repite la contraseña</label>
-    <input type="password" id="invitePassword2" class="form-control mb-3" autocomplete="new-password">
-    <button class="btn btn-brand w-100" id="inviteBtn">Guardar y entrar</button>
-  </div>
+      <!-- LOGIN -->
+      <div id="loginView" style="display:none;">
+        <p class="dl-kicker" data-bizname>¡Centro de control!</p>
+        <h2 class="dl-title">Ingresa</h2>
+        <p class="dl-sub">Con tu correo y contraseña</p>
+        <div class="dl-form">
+          <input type="email" id="loginEmail" class="dl-in" placeholder="Tu correo electrónico" aria-label="Correo" autocomplete="username">
+          <input type="password" id="loginPassword" class="dl-in" placeholder="Tu contraseña" aria-label="Contraseña" autocomplete="current-password">
+          <button class="dl-btn" id="loginBtn">Ingresar</button>
+        </div>
+        <p class="dl-help">¿Olvidaste tu contraseña? Pide un link nuevo al administrador.</p>
+      </div>
+
+      <!-- CREAR / RESTABLECER CONTRASEÑA (link de invitación) -->
+      <div id="inviteView" style="display:none;">
+        <p class="dl-kicker" data-bizname>¡Bienvenido!</p>
+        <h2 class="dl-title" id="inviteTitle">Crea tu contraseña</h2>
+        <p class="dl-sub" id="inviteWho"></p>
+        <div class="dl-form">
+          <input type="email" id="inviteEmail" class="d-none" autocomplete="username">
+          <input type="text" id="inviteName" class="dl-in" maxlength="100" placeholder="Tu nombre" aria-label="Tu nombre" autocomplete="name">
+          <input type="password" id="invitePassword" class="dl-in" placeholder="Contraseña (mínimo 8 caracteres)" aria-label="Contraseña" autocomplete="new-password">
+          <input type="password" id="invitePassword2" class="dl-in" placeholder="Repite la contraseña" aria-label="Repite la contraseña" autocomplete="new-password">
+          <button class="dl-btn" id="inviteBtn">Guardar y entrar</button>
+        </div>
+      </div>
+
+      <p class="dl-powered">Control de Citas · por <a href="https://diwilo.com" target="_blank" rel="noopener">Diwilo</a></p>
+    </div>
+  </main>
 </div>
 
 <!-- Suscripción vencida -->

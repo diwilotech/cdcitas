@@ -58,7 +58,19 @@ window.AdminShell = (function () {
     }
   }
 
+  // Pantalla de ingreso: banner de Diwilo + tarjeta con el nombre y logo del negocio.
+  function showAuth() {
+    document.getElementById("authShell").style.display = "grid";
+    if (showAuth.done) return;
+    showAuth.done = true;
+    api("/public/business").then((b) => {
+      document.querySelectorAll("[data-bizname]").forEach((el) => { el.textContent = b.name; });
+      if (b.logoKey) document.getElementById("authLogo").innerHTML = `<img src="/api/${tenantSlug()}/public/files/${b.logoKey}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    }).catch(() => {});
+  }
+
   function showLogin() {
+    showAuth();
     document.getElementById("inviteView").style.display = "none";
     document.getElementById("loginView").style.display = "block";
   }
@@ -73,6 +85,7 @@ window.AdminShell = (function () {
       history.replaceState(null, "", location.pathname);
       return showLogin();
     }
+    showAuth();
     document.getElementById("loginView").style.display = "none";
     document.getElementById("inviteView").style.display = "block";
     document.getElementById("inviteTitle").textContent = info.reset ? "Nueva contraseña" : "Crea tu contraseña";
@@ -112,7 +125,7 @@ window.AdminShell = (function () {
   };
 
   function showApp(user) {
-    document.getElementById("loginView").style.display = "none";
+    document.getElementById("authShell").style.display = "none";
     document.getElementById("readOnlyBar").style.display = user.readOnly ? "block" : "none";
     document.getElementById("appView").style.display = "block";
     document.getElementById("userMenu").style.display = "block";
