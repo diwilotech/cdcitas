@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ingresar · Control de Citas</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500&display=swap" rel="stylesheet">
+<link href="/diwilo-login.css" rel="stylesheet">
+<style>
+  .d-none{display:none!important}
+  .dl-pick{display:grid;gap:10px;margin:0 auto;max-width:280px}
+  .dl-pick button{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font:inherit;font-weight:600;color:#111827;text-align:left;cursor:pointer}
+  .dl-pick button:hover{border-color:var(--dl-accent);background:#f0fdfa}
+  .dl-pick i{color:var(--dl-accent)}
+  .dl-back{margin-top:14px;border:0;background:none;color:#6b7280;font:inherit;font-size:.85rem;cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+<!-- Login general de Control de Citas: sin el negocio en la URL. Entra con correo y contraseña
+     y lo lleva a /<negocio>/admin. Si la clave sirve en varios negocios, deja elegir. -->
+<div class="dl-shell" style="--dl-accent:#0f5257;--dl-accent-2:#1a8a8f;--dl-m1:hsla(270,45%,74%,1);--dl-m2:hsla(180,45%,58%,1);--dl-m3:hsla(40,95%,72%,1);--dl-m4:hsla(22,85%,68%,1)">
+  <div class="dl-box">
+  <aside class="dl-brand">
+    <a class="dl-logo" href="https://diwilo.com" target="_blank" rel="noopener"><svg viewBox="18 14 168 172" aria-hidden="true"><defs><linearGradient id="dwl" gradientUnits="userSpaceOnUse" x1="30" y1="20" x2="170" y2="180"><stop offset="0" stop-color="#F3E8FF"/><stop offset="1" stop-color="#A78BFA"/></linearGradient></defs><g fill="none" stroke="url(#dwl)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"><path d="M48 72V146Q48 170 72 170H84"/><path d="M156.6 135A70 70 0 0 0 96 30H86"/><path d="M84 134V124Q84 108 100 108H124"/></g><g fill="url(#dwl)"><circle cx="48" cy="34" r="13"/><circle cx="112" cy="72" r="13"/><circle cx="125.6" cy="163.4" r="13"/></g></svg>Diwilo</a>
+    <div class="dl-hero">
+      <span class="dl-chip"><i class="bi bi-calendar2-check"></i>Control de Citas · una app de Diwilo</span>
+      <h1>Tu agenda llena, sin llamadas ni enredos.</h1>
+      <p>Reservas en línea, agenda del equipo, espacios y recordatorios por WhatsApp.</p>
+      <ul class="dl-points"><li>Tus clientes reservan solos, a cualquier hora</li><li>Confirmaciones y recordatorios automáticos</li><li>Cada especialista con su propia agenda</li></ul>
+    </div>
+    <div class="dl-foot">¿Necesitas ayuda? <a href="https://wa.me/573053840193" target="_blank" rel="noopener">Escríbenos por WhatsApp</a><br>© Diwilo · <a href="https://diwilo.com" target="_blank" rel="noopener">diwilo.com</a></div>
+    <span class="dl-m">una app de Diwilo</span>
+  </aside>
+  <main class="dl-side">
+    <div class="dl-card">
+      <div class="dl-icon"><i class="bi bi-calendar2-check"></i></div>
+      <p class="dl-kicker">¡Centro de control!</p>
+      <h1 class="dl-title" id="title">Ingresa</h1>
+      <p class="dl-sub" id="sub">Con tu correo y contraseña</p>
+
+      <form id="loginForm" class="dl-form" novalidate>
+        <input type="email" id="email" class="dl-in" placeholder="Tu correo electrónico" aria-label="Correo" autocomplete="username" required>
+        <input type="password" id="password" class="dl-in" placeholder="Tu contraseña" aria-label="Contraseña" autocomplete="current-password" required>
+        <p class="dl-err" id="err"></p>
+        <button class="dl-btn" id="btn" type="submit">Ingresar</button>
+      </form>
+
+      <div id="pick" class="d-none">
+        <div class="dl-pick" id="pickList"></div>
+        <button class="dl-back" id="back" type="button">Usar otra cuenta</button>
+      </div>
+
+      <p class="dl-help" id="help">¿Olvidaste tu contraseña? Pide un link nuevo al administrador.</p>
+      <p class="dl-powered">Control de Citas · por <a href="https://diwilo.com" target="_blank" rel="noopener">Diwilo</a></p>
+    </div>
+  </main>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  async function post(url, body) {
+    const r = await fetch(url, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'No se pudo entrar.');
+    return d;
+  }
+  const go = (slug, hash = '') => location.replace(`/${encodeURIComponent(slug)}/admin${hash}`);
+
+  // Con sesión abierta: directo al panel del negocio.
+  fetch('/api/auth/session', { credentials: 'include' }).then((r) => r.json()).then((d) => { if (d.slug) go(d.slug); }).catch(() => {});
+
+  function creds() { return { email: $('email').value.trim(), password: $('password').value }; }
+  function done(r) {
+    if (r.mustSetPassword) return go(r.slug, '#invite=' + r.invite);
+    go(r.slug);
+  }
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('err').textContent = '';
+    const c = creds();
+    if (!c.email || !c.password) { $('err').textContent = 'Escribe tu correo y tu contraseña.'; return; }
+    $('btn').disabled = true;
+    try {
+      const r = await post('/api/auth/login', c);
+      if (!r.choose) return done(r);
+      // La misma cuenta en varios negocios: elegir a cuál entrar.
+      $('loginForm').classList.add('d-none'); $('help').classList.add('d-none'); $('pick').classList.remove('d-none');
+      $('title').textContent = '¿A qué negocio entras?';
+      $('sub').textContent = c.email;
+      $('pickList').innerHTML = r.choose.map((b) => `<button type="button" data-slug="${esc(b.slug)}"><i class="bi bi-shop"></i>${esc(b.name)}</button>`).join('');
+    } catch (x) {
+      $('err').textContent = x.message;
+      $('password').value = ''; $('password').focus();
+    } finally { $('btn').disabled = false; }
+  });
+
+  $('pickList').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-slug]'); if (!b) return;
+    b.disabled = true;
+    try {
+      const r = await post(`/api/${encodeURIComponent(b.dataset.slug)}/auth/login`, creds());
+      if (r.mustSetPassword) return go(b.dataset.slug, '#invite=' + r.invite);
+      go(b.dataset.slug);
+    } catch (x) { $('sub').textContent = x.message; b.disabled = false; }
+  });
+
+  $('back').addEventListener('click', () => {
+    $('pick').classList.add('d-none'); $('loginForm').classList.remove('d-none'); $('help').classList.remove('d-none');
+    $('title').textContent = 'Ingresa'; $('sub').textContent = 'Con tu correo y contraseña';
+    $('password').value = ''; $('email').focus();
+  });
+  $('email').focus();
+})();
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { first, run } from "../lib/db.js";
+import { all, first, run, nowIso } from "../lib/db.js";
 import { json, error, readJson } from "../lib/http.js";
 import { createSession, getCookie, sessionCookie, clearSessionCookie, SESSION_COOKIE_NAME, isExpired } from "../lib/auth.js";
 import {
@@ -23,6 +23,35 @@ const publicUser = (u) => ({ email: u.email, name: u.name, role: u.role });
 
 // Login directo: correo + contraseña.
 export function registerAuth(router) {
+  // Login general (/login), sin el negocio en la URL: busca el correo en todos los negocios y lo
+  // lleva al suyo. Si la misma clave sirve en varios, devuelve la lista para que elija (el ingreso a
+  // ese negocio lo hace después /api/:slug/auth/login).
+  router.post("/api/auth/login", async (request, env) => {
+    const { email, password } = await readJson(request);
+    const pw = String(password || "");
+    const users = await all(env,
+      `SELECT u.id, u.business_id, u.pin_hash, u.pin_salt, b.slug, b.name AS business_name
+         FROM users u JOIN businesses b ON b.id = u.business_id WHERE u.email=? ORDER BY b.name`,
+      String(email || "").trim().toLowerCase());
+    const matches = [];
+    for (const u of users) if (await verifyPassword(pw, u.pin_salt, u.pin_hash)) matches.push(u);
+    if (!matches.length) return error("Correo o contraseña incorrectos.", 401);
+    if (matches.length > 1) return json({ choose: matches.map((u) => ({ slug: u.slug, name: u.business_name })) });
+    const u = matches[0];
+    if (pw.length < MIN_PASSWORD) return json({ slug: u.slug, mustSetPassword: true, invite: await createInvite(env, u.id) });
+    const token = await createSession(env, u.id, u.business_id);
+    return json({ slug: u.slug }, { headers: { "set-cookie": sessionCookie(token) } });
+  });
+
+  // ¿Ya hay una sesión abierta? /login la usa para mandar directo al panel del negocio.
+  router.get("/api/auth/session", async (request, env) => {
+    const token = getCookie(request, SESSION_COOKIE_NAME);
+    const s = token && await first(env,
+      `SELECT b.slug FROM sessions s JOIN businesses b ON b.id = s.business_id WHERE s.id=? AND s.expires_at > ?`,
+      token, nowIso());
+    return json({ slug: s ? s.slug : null });
+  });
+
   router.post("/api/:slug/auth/login", async (request, env, ctx) => {
     const { email, password } = await readJson(request);
     const user = await first(env, `SELECT * FROM users WHERE business_id=? AND email=?`,

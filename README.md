@@ -13,7 +13,9 @@ Sin frameworks ni bundler: JavaScript plano en módulos ES, para que sea fácil 
 - **Evolution API** (WhatsApp) corre en **tu propio servidor**, no en Cloudflare — Workers no
   puede alojar procesos persistentes tipo Baileys. El Worker solo le hace peticiones HTTP
   (`src/lib/whatsapp.js`), para avisos de citas (agendada/cancelada/reagendar/mover/reabrir).
-- **Login con correo + contraseña**: el personal de cada negocio entra en `/:slug/admin` con su
+- **Login general en `/login`** (también `/admin`): correo + contraseña, sin el negocio en la URL; la
+  app lleva a cada quien a `/:slug/admin` y, si el correo está en varios negocios, deja elegir.
+- **Login con correo + contraseña**: el personal de cada negocio también puede entrar en `/:slug/admin` con su
   correo y una contraseña de mínimo 8 caracteres (PBKDF2 con salt, `src/lib/password.js`). Los PIN
   de antes entran una última vez y piden crear la contraseña.
 - **Diwilo Web maneja la plataforma**: crear negocios, invitar dueños y personal, y la suscripción

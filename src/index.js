@@ -49,8 +49,9 @@ export default {
     if (!url.pathname.startsWith("/api/")) {
       const parts = url.pathname.split("/").filter(Boolean);
 
-      // /admin (sin negocio): ya no hay super admin propio — los negocios se crean en Diwilo Web.
-      if (parts.length === 1 && parts[0] === "admin") return notFound();
+      // /admin (sin negocio) -> login general: entra con correo y contraseña y va a su negocio.
+      // (Ya no hay super admin propio: los negocios se crean en Diwilo Web.)
+      if (parts.length === 1 && parts[0] === "admin") return Response.redirect(new URL("/login", url), 302);
 
       // /:slug -> reserva del cliente, /:slug/admin -> panel de personal de ese negocio. Un slug
       // se distingue de un archivo real (styles.css, app.js, favicon.ico...) probando primero
