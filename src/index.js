@@ -1,3 +1,5 @@
+import { WorkerEntrypoint } from "cloudflare:workers";
+import { platformCall } from "./lib/platform-rpc.js";
 import { Router } from "./lib/router.js";
 import { json, error, notFound } from "./lib/http.js";
 import { resolveBusiness } from "./lib/tenant.js";
@@ -42,7 +44,7 @@ function serveAsset(env, request, file) {
   return env.ASSETS.fetch(new Request(url, request));
 }
 
-export default {
+const worker = {
   async fetch(request, env) {
     const url = new URL(request.url);
 
@@ -114,3 +116,11 @@ export default {
     ctx.waitUntil(releaseExpiredPending(env));
   },
 };
+export default worker;
+
+// Diwilo Web administra esta app por RPC (service binding con entrypoint "Platform"), sin clave compartida.
+export class Platform extends WorkerEntrypoint {
+  call(method, path, body, origin) {
+    return platformCall(worker, this.env, this.ctx, method, path, body, origin);
+  }
+}

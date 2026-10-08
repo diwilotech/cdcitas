@@ -14,7 +14,7 @@ binding = "ASSETS"
 # pasa por el Worker (muestra login.html en vez de la reserva) y "/login" redirige a "/". Los
 # negocios se crean desde Diwilo Web, ver src/routes/platform.js.
 #
-# Secreto (wrangler secret put PLATFORM_KEY): clave compartida con Diwilo Web para /api/platform/*.
+# Diwilo Web administra la app por RPC (export class Platform, service binding): no hay clave compartida.
 run_worker_first = ["/", "/admin", "/login"]
 
 [[d1_databases]]

@@ -19,8 +19,8 @@ Sin frameworks ni bundler: JavaScript plano en módulos ES, para que sea fácil 
   correo y una contraseña de mínimo 8 caracteres (PBKDF2 con salt, `src/lib/password.js`). Los PIN
   de antes entran una última vez y piden crear la contraseña.
 - **Diwilo Web maneja la plataforma**: crear negocios, invitar dueños y personal, y la suscripción
-  se hacen desde `diwilo.com/admin`, que llama a `/api/platform/*` con
-  `Authorization: Bearer PLATFORM_KEY` (`src/routes/platform.js`). Cada invitación es un link
+  se hacen desde `diwilo.com/admin`, que llama a `/api/platform/*` por RPC (service binding con
+  `entrypoint: "Platform"`, sin clave compartida; `src/routes/platform.js`, `src/lib/platform-rpc.js`). Cada invitación es un link
   `/:slug/admin#invite=<token>` para crear (o restablecer) la contraseña. Ya no hay super admin
   propio en `/admin`.
 - **Suscripción**: `businesses.paid_until` (`YYYY-MM-DD`; vacío = sin límite). Si la fecha ya pasó,
@@ -61,11 +61,11 @@ Si en el futuro agregas una migración nueva (`migrations/0002_*.sql`), aplícal
 npm run db:migrate:remote
 ```
 
-### Clave de Diwilo Web (secreto, no va en el repo)
+### Diwilo Web
 
-```bash
-npx wrangler secret put PLATFORM_KEY   # el mismo valor que en Diwilo Web
-```
+No hay clave compartida: Diwilo llama a `export class Platform` (src/index.js) por su service binding.
+Desde internet `/api/platform/*` responde 401. Las migraciones de D1 no se aplican solas en el deploy:
+`npx wrangler d1 migrations apply control-de-citas-db --remote` antes de subir cambios que las necesiten.
 
 ### Conectar Evolution API (secretos, no van en el repo)
 

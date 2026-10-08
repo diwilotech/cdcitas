@@ -6,13 +6,14 @@ import { DEFAULT_TEMPLATES } from "../lib/templates.js";
 import { createInvite } from "./auth.js";
 
 // Plataforma: Diwilo Web es el único panel que crea negocios, invita usuarios y fija hasta cuándo
-// está paga la suscripción (businesses.paid_until). Autenticado con "Authorization: Bearer
-// PLATFORM_KEY". Contrato común a las apps de Diwilo (pedidos, nutrición, citas):
+// está paga la suscripción (businesses.paid_until). Solo llega por RPC desde Diwilo (ver
+// lib/platform-rpc.js). Contrato común a las apps de Diwilo (pedidos, nutrición, citas):
 //   GET    /api/platform/businesses
 //   POST   /api/platform/businesses                 { name, slug, owner_email, owner_name?, paid_until }
 //   GET    /api/platform/businesses/:id
 //   PATCH  /api/platform/businesses/:id             { name?, paid_until? }
 //   POST   /api/platform/businesses/:id/users       { email, name?, role: owner|staff } -> invite_path
+//   PATCH  /api/platform/businesses/:id/users/:userId { role }  solo cambia permisos
 //   DELETE /api/platform/businesses/:id/users/:userId
 
 // El negocio vive en /:slug (reserva) y /:slug/admin (panel) — estas palabras ya son rutas del
@@ -129,6 +130,20 @@ export function registerPlatform(router) {
     }
     const token = await createInvite(env, user.id);
     return json({ id: user.id, invite_path: invitePath(business.slug, token) }, { status: 201 });
+  }));
+
+  // Cambia solo el rol (permisos), sin link nuevo ni tocar la contraseña. Siempre queda al menos un dueño.
+  router.patch("/api/platform/businesses/:id/users/:userId", guarded(async (request, env, ctx) => {
+    const { role } = await readJson(request);
+    if (role !== "owner" && role !== "staff") return error("Rol no válido.");
+    const user = await first(env, `SELECT id, role FROM users WHERE business_id=? AND id=?`, ctx.params.id, ctx.params.userId);
+    if (!user) return error("El usuario no pertenece a este negocio.", 404);
+    if (user.role === "owner" && role !== "owner") {
+      const owners = await first(env, `SELECT COUNT(*) AS n FROM users WHERE business_id=? AND role='owner'`, ctx.params.id);
+      if (owners.n <= 1) return error("Es el único dueño: primero asigna otro dueño.", 409);
+    }
+    await run(env, `UPDATE users SET role=? WHERE id=?`, role, user.id);
+    return json({ ok: true, role });
   }));
 
   router.delete("/api/platform/businesses/:id/users/:userId", guarded(async (request, env, ctx) => {

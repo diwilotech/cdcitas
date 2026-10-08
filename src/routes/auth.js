@@ -1,6 +1,6 @@
 import { all, first, run, nowIso } from "../lib/db.js";
 import { json, error, readJson } from "../lib/http.js";
-import { createSession, getCookie, sessionCookie, clearSessionCookie, SESSION_COOKIE_NAME, isExpired } from "../lib/auth.js";
+import { createSession, getCookie, sessionCookie, clearSessionCookie, SESSION_COOKIE_NAME, isExpired, requireStaff } from "../lib/auth.js";
 import {
   verifyPassword, hashPassword, validatePassword, randomSalt, randomToken, sha256Hex, MIN_PASSWORD,
 } from "../lib/password.js";
@@ -21,6 +21,22 @@ async function userByInvite(env, businessId, token) {
 
 const publicUser = (u) => ({ email: u.email, name: u.name, role: u.role });
 
+// Bloqueo por correo: 5 intentos fallidos -> 15 minutos (tabla login_attempts, igual que las demás apps).
+const MAX_FAILS = 5, LOCK_MINUTES = 15;
+async function lockedOut(env, mail) {
+  const a = await first(env, `SELECT locked_until FROM login_attempts WHERE email=?`, mail);
+  return !!(a?.locked_until && a.locked_until > nowIso());
+}
+async function recordFail(env, mail) {
+  const a = await first(env, `SELECT fails FROM login_attempts WHERE email=?`, mail);
+  const n = (a?.fails || 0) + 1;
+  const lock = n >= MAX_FAILS ? new Date(Date.now() + LOCK_MINUTES * 60000).toISOString() : null;
+  await run(env, `INSERT INTO login_attempts (email, fails, locked_until) VALUES (?,?,?)
+                  ON CONFLICT(email) DO UPDATE SET fails=excluded.fails, locked_until=excluded.locked_until`, mail, lock ? 0 : n, lock);
+}
+const clearFails = (env, mail) => run(env, `DELETE FROM login_attempts WHERE email=?`, mail);
+const LOCKED = "Demasiados intentos. Prueba de nuevo en unos minutos.";
+
 // Login directo: correo + contraseña.
 export function registerAuth(router) {
   // Login general (/login), sin el negocio en la URL: busca el correo en todos los negocios y lo
@@ -29,13 +45,16 @@ export function registerAuth(router) {
   router.post("/api/auth/login", async (request, env) => {
     const { email, password } = await readJson(request);
     const pw = String(password || "");
+    const mail = String(email || "").trim().toLowerCase();
+    if (await lockedOut(env, mail)) return error(LOCKED, 429);
     const users = await all(env,
       `SELECT u.id, u.business_id, u.pin_hash, u.pin_salt, b.slug, b.name AS business_name
          FROM users u JOIN businesses b ON b.id = u.business_id WHERE u.email=? ORDER BY b.name`,
-      String(email || "").trim().toLowerCase());
+      mail);
     const matches = [];
     for (const u of users) if (await verifyPassword(pw, u.pin_salt, u.pin_hash)) matches.push(u);
-    if (!matches.length) return error("Correo o contraseña incorrectos.", 401);
+    if (!matches.length) { await recordFail(env, mail); return error("Correo o contraseña incorrectos.", 401); }
+    await clearFails(env, mail);
     if (matches.length > 1) return json({ choose: matches.map((u) => ({ slug: u.slug, name: u.business_name })) });
     const u = matches[0];
     if (pw.length < MIN_PASSWORD) return json({ slug: u.slug, mustSetPassword: true, invite: await createInvite(env, u.id) });
@@ -54,11 +73,14 @@ export function registerAuth(router) {
 
   router.post("/api/:slug/auth/login", async (request, env, ctx) => {
     const { email, password } = await readJson(request);
-    const user = await first(env, `SELECT * FROM users WHERE business_id=? AND email=?`,
-      ctx.business.id, String(email || "").trim().toLowerCase());
+    const mail = String(email || "").trim().toLowerCase();
+    if (await lockedOut(env, mail)) return error(LOCKED, 429);
+    const user = await first(env, `SELECT * FROM users WHERE business_id=? AND email=?`, ctx.business.id, mail);
     if (!user || !(await verifyPassword(String(password || ""), user.pin_salt, user.pin_hash))) {
+      await recordFail(env, mail);
       return error("Correo o contraseña incorrectos.", 401);
     }
+    await clearFails(env, mail);
     // Entró con el PIN de antes: se acepta una vez y pide crear la contraseña.
     if (String(password).length < MIN_PASSWORD) {
       return json({ mustSetPassword: true, invite: await createInvite(env, user.id) });
@@ -87,6 +109,22 @@ export function registerAuth(router) {
     const sessionToken = await createSession(env, user.id, ctx.business.id);
     return json({ user: publicUser({ ...user, name: String(name || "").trim() || user.name }) },
       { headers: { "set-cookie": sessionCookie(sessionToken) } });
+  });
+
+  // Cambiar la contraseña desde el panel (sirve aunque la suscripción esté vencida). Cierra las demás sesiones.
+  router.post("/api/:slug/auth/password", async (request, env, ctx) => {
+    const denied = await requireStaff(request, env, ctx);
+    if (denied) return denied;
+    const { current, password } = await readJson(request);
+    const user = await first(env, `SELECT id, pin_hash, pin_salt FROM users WHERE id=?`, ctx.user.user_id);
+    if (!(await verifyPassword(String(current || ""), user.pin_salt, user.pin_hash))) return error("La contraseña actual no es correcta.", 401);
+    if (!validatePassword(password)) return error(`La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`);
+    const salt = randomSalt();
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE users SET pin_hash=?, pin_salt=?, invite_hash=NULL WHERE id=?`).bind(await hashPassword(password, salt), salt, user.id),
+      env.DB.prepare(`DELETE FROM sessions WHERE user_id=? AND id<>?`).bind(user.id, ctx.user.id),
+    ]);
+    return json({ ok: true });
   });
 
   router.post("/api/:slug/auth/logout", async (request, env, ctx) => {

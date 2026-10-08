@@ -1,6 +1,6 @@
 import { first, run, uid, nowIso } from "./db.js";
 import { unauthorized } from "./http.js";
-import { sha256Hex, timingSafeEqual } from "./password.js";
+import { isPlatformCall } from "./platform-rpc.js";
 
 const SESSION_DAYS = 30;
 
@@ -49,13 +49,10 @@ export async function requireStaff(request, env, ctx) {
   return null; // null = sigue adelante
 }
 
-// Middleware: Diwilo Web (crea negocios, invita usuarios, maneja suscripciones) se autentica con
-// "Authorization: Bearer PLATFORM_KEY" — el mismo secreto en los dos proyectos.
-export async function requirePlatform(request, env) {
-  const key = env.PLATFORM_KEY;
-  const auth = request.headers.get("authorization") || "";
-  if (!key || !timingSafeEqual(await sha256Hex(auth), await sha256Hex(`Bearer ${key}`))) return unauthorized();
-  return null;
+// Middleware: Diwilo Web (crea negocios, invita usuarios, maneja suscripciones) entra solo por RPC
+// (Platform.call, ver platform-rpc.js); desde internet /api/platform da 401.
+export async function requirePlatform(request) {
+  return isPlatformCall(request) ? null : unauthorized();
 }
 
 // Suscripción: businesses.paid_until ('YYYY-MM-DD', inclusive) lo fija Diwilo Web. NULL = sin límite.
