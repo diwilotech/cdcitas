@@ -2,6 +2,7 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { platformCall } from "./lib/platform-rpc.js";
 import { Router } from "./lib/router.js";
 import { json, error, notFound } from "./lib/http.js";
+import { first } from "./lib/db.js";
 import { resolveBusiness } from "./lib/tenant.js";
 import { requireStaff, isExpired } from "./lib/auth.js";
 
@@ -64,6 +65,10 @@ const worker = {
       if (parts.length >= 1 && parts.length <= 2 && !parts[0].includes(".")) {
         const direct = await env.ASSETS.fetch(request);
         if (direct.status !== 404) return direct;
+
+        // Dirección anterior (se cambió desde Diwilo): redirige a la actual conservando el resto.
+        const alias = await first(env, `SELECT b.slug FROM business_slug_aliases a JOIN businesses b ON b.id = a.business_id AND b.archived_at IS NULL WHERE a.slug=?`, parts[0]);
+        if (alias) return Response.redirect(`${url.origin}/${[alias.slug, ...parts.slice(1)].join("/")}${url.search}`, 301);
 
         if (parts.length === 1) return serveAsset(env, request, "/");
         if (parts.length === 2 && parts[1] === "admin") return serveAsset(env, request, "/admin");

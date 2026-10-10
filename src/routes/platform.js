@@ -12,7 +12,8 @@ import { createInvite } from "./auth.js";
 //   GET    /api/platform/businesses
 //   POST   /api/platform/businesses                 { name, slug, owner_email, owner_name?, paid_until }
 //   GET    /api/platform/businesses/:id
-//   PATCH  /api/platform/businesses/:id             { name?, paid_until? }
+//   PATCH  /api/platform/businesses/:id             { name?, slug?, paid_until? }
+//          slug = dirección /<slug>; la anterior queda como alias y redirige a la nueva.
 //   POST   /api/platform/businesses/:id/users       { email, name?, role: owner|staff } -> invite_path
 //   PATCH  /api/platform/businesses/:id/users/:userId { role }  solo cambia permisos
 //   DELETE /api/platform/businesses/:id/users/:userId
@@ -77,7 +78,7 @@ export function registerPlatform(router) {
     if (!name) return error("Falta el nombre del negocio.");
     if (!validEmail(ownerEmail)) return error("Correo del dueño inválido.");
     if (!validDate(body.paid_until ?? null)) return error("Fecha de pago inválida.");
-    if (await first(env, `SELECT 1 FROM businesses WHERE slug=?`, slug)) return error("Ese slug ya está en uso.", 409);
+    if (await first(env, `SELECT 1 FROM businesses WHERE slug=?`, slug) || await first(env, `SELECT 1 FROM business_slug_aliases WHERE slug=?`, slug)) return error("Ese slug ya está en uso.", 409);
 
     const businessId = uid();
     const userId = uid();
@@ -109,6 +110,20 @@ export function registerPlatform(router) {
     if (body.name !== undefined && !String(body.name).trim()) return error("Nombre vacío.");
     if (body.paid_until !== undefined && !validDate(body.paid_until)) return error("Fecha de pago inválida.");
     const stmts = [];
+    // Dirección /<slug>: la anterior queda como alias y redirige (links de reserva y QR ya compartidos).
+    if (body.slug !== undefined) {
+      const slug = String(body.slug || "").trim().toLowerCase();
+      if (!/^[a-z0-9-]{3,40}$/.test(slug)) return error("La dirección debe tener 3-40 caracteres: minúsculas, números o guiones.");
+      if (RESERVED_SLUGS.has(slug)) return error("Esa dirección está reservada, elige otra.");
+      const cur = await first(env, `SELECT slug FROM businesses WHERE id=?`, ctx.params.id);
+      if (slug !== cur.slug) {
+        if (await first(env, `SELECT 1 FROM businesses WHERE slug=? AND id<>?`, slug, ctx.params.id)) return error("Esa dirección ya la usa otro negocio.", 409);
+        if (await first(env, `SELECT 1 FROM business_slug_aliases WHERE slug=? AND business_id<>?`, slug, ctx.params.id)) return error("Esa dirección la usó antes otro negocio.", 409);
+        stmts.push(env.DB.prepare(`UPDATE businesses SET slug=? WHERE id=?`).bind(slug, ctx.params.id),
+          env.DB.prepare(`INSERT OR REPLACE INTO business_slug_aliases (slug, business_id) VALUES (?,?)`).bind(cur.slug, ctx.params.id),
+          env.DB.prepare(`DELETE FROM business_slug_aliases WHERE slug=?`).bind(slug));
+      }
+    }
     if (body.name !== undefined) stmts.push(env.DB.prepare(`UPDATE businesses SET name=? WHERE id=?`).bind(String(body.name).trim(), ctx.params.id));
     if (body.paid_until !== undefined) stmts.push(env.DB.prepare(`UPDATE businesses SET paid_until=? WHERE id=?`).bind(body.paid_until, ctx.params.id));
     if (stmts.length) await env.DB.batch(stmts);
