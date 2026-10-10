@@ -19,6 +19,7 @@ import { registerManage } from "./routes/manage.js";
 import { registerFiles } from "./routes/files.js";
 import { registerTreatments } from "./routes/treatments.js";
 import { registerCard } from "./routes/card.js";
+import { registerTeam } from "./routes/team.js";
 import { sendDueReminders } from "./lib/reminders.js";
 import { releaseExpiredPending } from "./lib/confirm.js";
 
@@ -36,6 +37,7 @@ registerFiles(router);
 registerManage(router);
 registerTreatments(router);
 registerCard(router);
+registerTeam(router);
 
 // Sirve un archivo estático concreto a través del binding de assets (para las rutas bonitas
 // /:slug y /:slug/admin, que no existen como archivo real).
