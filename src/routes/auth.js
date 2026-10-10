@@ -49,7 +49,7 @@ export function registerAuth(router) {
     if (await lockedOut(env, mail)) return error(LOCKED, 429);
     const users = await all(env,
       `SELECT u.id, u.business_id, u.pin_hash, u.pin_salt, b.slug, b.name AS business_name
-         FROM users u JOIN businesses b ON b.id = u.business_id WHERE u.email=? ORDER BY b.name`,
+         FROM users u JOIN businesses b ON b.id = u.business_id AND b.archived_at IS NULL WHERE u.email=? ORDER BY b.name`,
       mail);
     const matches = [];
     for (const u of users) if (await verifyPassword(pw, u.pin_salt, u.pin_hash)) matches.push(u);
@@ -66,7 +66,7 @@ export function registerAuth(router) {
   router.get("/api/auth/session", async (request, env) => {
     const token = getCookie(request, SESSION_COOKIE_NAME);
     const s = token && await first(env,
-      `SELECT b.slug FROM sessions s JOIN businesses b ON b.id = s.business_id WHERE s.id=? AND s.expires_at > ?`,
+      `SELECT b.slug FROM sessions s JOIN businesses b ON b.id = s.business_id AND b.archived_at IS NULL WHERE s.id=? AND s.expires_at > ?`,
       token, nowIso());
     return json({ slug: s ? s.slug : null });
   });
