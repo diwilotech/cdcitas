@@ -15,7 +15,7 @@ binding = "ASSETS"
 # negocios se crean desde Diwilo Web, ver src/routes/platform.js.
 #
 # Diwilo Web administra la app por RPC (export class Platform, service binding): no hay clave compartida.
-run_worker_first = ["/", "/admin", "/login"]
+run_worker_first = ["/", "/admin", "/login", "/staff", "/staff/*", "/m/*", "/mcp", "/chat/*", "/v1/*", "/wa/*", "/l/*", "/validar/*", "/c/*"]
 
 [[d1_databases]]
 binding = "DB"
@@ -31,3 +31,9 @@ bucket_name = "cdcitas-files"
 # Manda los recordatorios de cita vencidos (ver src/index.js#scheduled y src/lib/reminders.js).
 [triggers]
 crons = ["*/15 * * * *"]
+
+# Módulos horizontales (Inicio, Marca, IA, Finanzas, Marketing, Nómina, Mensajes): Worker central «Diwilo Modulos» por RPC (modulos.app.json → "centrales").
+[[services]]
+binding = "MODULOS"
+service = "diwilo-modulos"
+entrypoint = "Modulos"

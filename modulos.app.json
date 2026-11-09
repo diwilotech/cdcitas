@@ -1,0 +1,49 @@
+{
+  "app": "cdcitas",
+  "nombre": "CD Citas",
+  "tema": "turquesa",
+  "centrales": [
+    "finanzas",
+    "marketing",
+    "nomina",
+    "whatsapp",
+    "marca",
+    "ai",
+    "dashboard"
+  ],
+  "modulos": [
+    {
+      "id": "citas",
+      "nombre": "Citas",
+      "icono": "bi-calendar2-check",
+      "menu": {
+        "ruta": "/staff/citas.html",
+        "orden": 10
+      },
+      "permisos": {
+        "ver": "staff",
+        "configurar": "admin"
+      },
+      "widgets": [],
+      "depende_de": [],
+      "tipo": "propio",
+      "tablas": [
+        "appointments",
+        "clients",
+        "services",
+        "specialists",
+        "spaces",
+        "treatments",
+        "promotions"
+      ],
+      "mcp": {
+        "guia": "Citas: la agenda del negocio (día y mes), los clientes con su historial y paquetes de sesiones, los especialistas y sus horarios, los servicios, los espacios y la tarjeta digital. Las citas se agendan, se mueven, se reagendan, se cancelan y se marcan como completadas; los avisos salen por WhatsApp. La IA consulta la agenda y crea o completa citas; cancelar o reagendar avisa al cliente y pide confirmación.",
+        "ejemplos": [
+          "Pídele: «¿Qué citas tengo mañana?»",
+          "Pídele: «¿Cuánto facturé esta semana y qué especialista atendió más?»"
+        ],
+        "flujos": []
+      }
+    }
+  ]
+}

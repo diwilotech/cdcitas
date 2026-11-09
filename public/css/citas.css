@@ -1,0 +1,8 @@
+/* Componentes propios de Citas dentro del panel común. */
+.kpi { padding: 1rem 1.1rem; }
+.kpi .kpi-label { font-size: .75rem; color: var(--bs-secondary-color); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.kpi .kpi-value { font-size: 1.9rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi .kpi-icon { font-size: 1.3rem; color: var(--dw-p); background: rgba(var(--dw-p-rgb), .14); width: 2.2rem; height: 2.2rem; border-radius: .7rem; display: grid; place-items: center; }
+.empty { padding: 2rem 1rem; text-align: center; color: var(--bs-secondary-color); }
+.appt-time { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 3.5rem; font-family: ui-monospace, monospace; }
+@media (max-width: 575.98px) { .kpi .kpi-value { font-size: 1.5rem; } }

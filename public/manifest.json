@@ -1,0 +1,20 @@
+{
+  "name": "CD Citas",
+  "short_name": "Citas",
+  "description": "Agenda, clientes y servicios de tu negocio.",
+  "lang": "es-CO",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0f766e",
+  "background_color": "#f5f6fa",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

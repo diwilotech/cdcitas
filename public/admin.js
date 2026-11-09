@@ -229,7 +229,14 @@ window.AdminShell = (function () {
     document.getElementById("userMenu").style.display = "block";
     document.getElementById("userNameSmall").textContent = user.name || user.email || "Usuario";
     document.querySelectorAll(".nav-btn").forEach((btn) => (btn.onclick = () => goView(btn.dataset.view)));
-    goView("agenda");
+    // Dentro del panel común (marco de /staff/citas): sin barra superior; el menú de secciones va arriba y el panel marca el módulo.
+    if (window.CDC_EMBED) {
+      document.body.classList.add("cdc-embed");
+      const titulo = window.CDC_START === "equipo" ? "Equipo" : "Citas";
+      window.parent.postMessage({ dw: "page", modulo: window.CDC_START === "equipo" ? "equipo" : "citas", titulo, url: location.pathname + location.search }, location.origin);
+    }
+    goView(window.CDC_START === "equipo" ? "ajustes" : "agenda");
+    if (window.CDC_START === "equipo") setTimeout(() => { try { openTeam(); } catch (_) { /* sin equipo */ } }, 300);
   }
 
   document.getElementById("copyWebhookBtn").onclick = async () => {

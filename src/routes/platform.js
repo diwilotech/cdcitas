@@ -20,7 +20,7 @@ import { createInvite } from "./auth.js";
 
 // El negocio vive en /:slug (reserva) y /:slug/admin (panel) — estas palabras ya son rutas del
 // sistema y no se pueden usar como slug (ver el ruteo de /:slug en src/index.js).
-const RESERVED_SLUGS = new Set(["admin", "api", "setup", "app", "styles", "t", "platform", "login", "auth", "sso"]);
+const RESERVED_SLUGS = new Set(["admin", "api", "setup", "app", "styles", "t", "platform", "login", "auth", "sso", "staff", "mcp", "m", "l", "c", "chat", "v1", "wa", "validar", "css", "js", "icons"]);
 
 // Tipos de espacio con los que arranca todo negocio nuevo (después son editables en Reglas).
 const DEFAULT_SPACE_TYPES = [

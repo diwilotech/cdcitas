@@ -6,6 +6,9 @@
 (function () {
   // El negocio vive en /:slug (reserva) o /:slug/admin (panel) — siempre el primer segmento.
   function tenantSlug() {
+    // Dentro del panel común (/staff/citas) el negocio ya no va en la URL: el servidor lo inyecta.
+    const meta = document.querySelector('meta[name="cdc-slug"]');
+    if (meta && meta.content) return meta.content;
     const parts = location.pathname.split("/").filter(Boolean);
     return parts[0] || new URLSearchParams(location.search).get("t");
   }
