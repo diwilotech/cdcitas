@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ajustes · CD Citas</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="/styles.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500&display=swap" rel="stylesheet">
+</head>
+<body class="cdc-embed pb-5">
+<div id="toastMini"></div>
+<div id="readOnlyBar" class="text-center small fw-semibold py-2 px-3" style="display:none;background:#c0472f;color:#fff;">
+  <i class="bi bi-lock-fill me-1"></i>La suscripción del negocio está vencida: puedes consultar, pero no guardar cambios.
+</div>
+<main id="appView" class="container pb-5" style="max-width:1100px;">
+    <section id="view-ajustes" class="view" style="display:none;">
+      <div class="card-panel p-4">
+        <h2 class="h6 fw-bold display-font mb-3"><i class="bi bi-geo-alt"></i> Locación</h2>
+        <label class="label-xs d-block mb-1">Zona horaria del negocio (para que la agenda, los recordatorios y las gráficas usen la hora correcta)</label>
+        <select class="form-select mb-4" id="setTimezoneOffset" style="max-width:360px;">
+          <option value="-6">México, Centroamérica (UTC-6)</option>
+          <option value="-5">Colombia, Ecuador, Perú, Panamá (UTC-5)</option>
+          <option value="-4">Bolivia, Venezuela, Rep. Dominicana (UTC-4)</option>
+          <option value="-3">Argentina, Chile, Uruguay (UTC-3)</option>
+        </select>
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" id="setWhatsappEnabled">
+          <label class="form-check-label" for="setWhatsappEnabled">Enviar avisos de citas por WhatsApp</label>
+        </div>
+        <label class="label-xs d-block mb-1">URL de tu servidor Evolution API (ej. https://tu-evolution-api.com)</label>
+        <input class="form-control mb-2" id="setEvoUrl" placeholder="https://tu-evolution-api.com">
+        <label class="label-xs d-block mb-1">Nombre de la instancia (el que le pusiste al crearla en Evolution API)</label>
+        <input class="form-control mb-2" id="setEvoInstance">
+        <label class="label-xs d-block mb-1">API key — el "Token"/"Hash"/"API Key" que muestra Evolution API para esa instancia</label>
+        <input class="form-control mb-3" id="setEvoApiKey">
+        <label class="label-xs d-block mb-1">Código de país (para completar números locales, ej. celular colombiano de 10 dígitos)</label>
+        <div class="input-group mb-3" style="max-width:160px;">
+          <span class="input-group-text">+</span>
+          <input class="form-control" id="setWhatsappCountryCode" placeholder="57">
+        </div>
+        <label class="label-xs d-block mb-1">Tu número de WhatsApp (el que ya conectaste en Evolution API, en formato internacional sin +, ej. 573001234567) — al confirmar una reserva, el cliente le escribe a este número</label>
+        <input class="form-control mb-3" id="setWhatsappBusinessNumber" placeholder="573001234567">
+        <label class="label-xs d-block mb-1">Link de webhook — pégalo en Evolution API → tu instancia → Webhook</label>
+        <div class="input-group mb-2">
+          <input class="form-control" id="setWebhookUrl" readonly>
+          <button class="btn btn-outline-dark" id="copyWebhookBtn" type="button">Copiar</button>
+        </div>
+        <button class="btn btn-outline-dark btn-sm mb-3" id="rotateWebhookBtn" type="button">Generar un link nuevo</button>
+        <label class="label-xs d-block mb-1">Horas para confirmar una reserva antes de liberar el horario (aplica a WhatsApp y correo)</label>
+        <input type="number" min="1" class="form-control mb-3" id="setConfirmWindow" style="max-width:120px;">
+        <div><button class="btn btn-brand btn-sm" id="saveWhatsappBtn">Guardar</button></div>
+      </div>
+
+      <div class="card-panel p-4 mt-3">
+        <h2 class="h6 fw-bold display-font mb-3">Probar WhatsApp</h2>
+        <p class="text-muted small mb-3">Manda un mensaje de prueba para confirmar que Evolution API está bien conectada.</p>
+        <label class="label-xs d-block mb-1">Número de celular</label>
+        <div class="input-group mb-2" style="max-width:320px;">
+          <span class="input-group-text" id="testWhatsappPrefix">+57</span>
+          <input type="tel" class="form-control" id="testWhatsappPhone" placeholder="300 123 4567">
+        </div>
+        <button class="btn btn-brand btn-sm" id="testWhatsappBtn">Enviar mensaje de prueba</button>
+      </div>
+
+      <div class="card-panel p-4 mt-3">
+        <h2 class="h6 fw-bold display-font mb-3">Correo (Gmail)</h2>
+        <p class="text-muted small mb-3">Para mandar la confirmación por correo a los clientes que prefieran esa opción. Necesitas una
+          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">contraseña de aplicación</a> de tu cuenta de Gmail — no la contraseña normal.</p>
+        <label class="label-xs d-block mb-1">Tu Gmail</label>
+        <input type="email" class="form-control mb-2" id="setGmailUser" placeholder="tunegocio@gmail.com">
+        <label class="label-xs d-block mb-1">Contraseña de aplicación</label>
+        <input type="password" class="form-control mb-3" id="setGmailAppPassword">
+        <div><button class="btn btn-brand btn-sm" id="saveEmailBtn">Guardar</button></div>
+      </div>
+
+      <div class="card-panel p-4 mt-3">
+        <h2 class="h6 fw-bold display-font mb-3">Probar correo</h2>
+        <p class="text-muted small mb-3">Manda un correo de prueba para confirmar que el Gmail está bien conectado.</p>
+        <label class="label-xs d-block mb-1">Correo</label>
+        <input type="email" class="form-control mb-2" id="testEmailAddress" style="max-width:320px;">
+        <button class="btn btn-brand btn-sm" id="testEmailBtn">Enviar correo de prueba</button>
+      </div>
+
+      <div class="card-panel p-4 mt-3">
+        <h2 class="h6 fw-bold display-font mb-1"><i class="bi bi-chat-left-text"></i> Plantillas de Mensajes</h2>
+        <p class="text-muted small mb-3">
+          Placeholders: <code>{cliente}</code> <code>{servicio}</code> <code>{fecha}</code> <code>{hora}</code> <code>{fechaNueva}</code> <code>{horaNueva}</code> <code>{codigo}</code> <code>{link}</code> <code>{ventana}</code>
+        </p>
+        <div id="templatesForm" class="row g-3"></div>
+      </div>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/app.js"></script>
+<script src="/js/pages/citas-base.js"></script>
+<script src="/admin-equipo.js"></script>
+<script src="/admin-ajustes.js"></script>
+</body>
+</html>

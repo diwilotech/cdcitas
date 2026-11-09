@@ -50,13 +50,13 @@ async function handleCentral(req, env, ctx, url) {
   return centralApi(c);
 }
 
-// Cada módulo propio es una sección del mismo panel de siempre (admin.html), en modo incrustado.
+// Módulos propios de Citas con su página (Clientes y Servicios son páginas comunes y salen de los assets).
 const PAGINAS_CITAS = ['citas', 'tarjeta', 'flujo', 'ajustes', 'equipo'];
 const aPanel = (url, slug, go) => Response.redirect(`${url.origin}/${slug}/admin${go ? `?go=${encodeURIComponent(go)}` : ''}`, 302);
 
-// Página de Citas dentro del panel: el mismo panel de siempre (admin.html) sin su barra, con el negocio inyectado.
+// Página de Citas dentro del panel: la página del módulo (public/staff/<módulo>.html) con el negocio inyectado.
 async function embedCitas(env, req, slug, start) {
-  const u = new URL(req.url); u.pathname = '/admin'; u.search = '';
+  const u = new URL(req.url); u.pathname = `/staff/${start === 'equipo' ? 'ajustes' : start}`; u.search = '';
   const res = await env.ASSETS.fetch(new Request(u, { headers: req.headers }));
   return new HTMLRewriter().on('head', { element(e) { e.prepend(`<meta name="cdc-slug" content="${slug}"><script>window.CDC_EMBED=1;window.CDC_START=${JSON.stringify(start || '')};</script>`, { html: true }); } }).transform(
     new Response(res.body, { status: res.status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } }));

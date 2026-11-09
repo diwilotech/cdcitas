@@ -58,6 +58,29 @@ try {
   const hay = await f.$eval('.modal.show [name=hora]', (e) => e.options.length > 0 && !!e.value);
   ok.push(['horarios disponibles para la sesión', hay]);
   if (hay) { await guardar(f); ok.push(['sesión agregada', (await texto(f)).includes('Corte de cabello ·')]); }
+
+  // Agenda: añadir una cita desde la agenda con el especialista y servicio creados arriba
+  f = await marco('citas.html');
+  await f.evaluate(() => document.getElementById('walkInOpenBtn').click()); await wait(1200);
+  const manana = new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10);
+  await f.evaluate((d) => { const set = (id, v) => { const e = document.getElementById(id); e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); }; set('walkInName', 'Cliente de mostrador'); set('walkInPhone', '3009998877'); set('walkInDate', d); }, manana);
+  await wait(1500);
+  await f.evaluate(() => document.querySelector('#walkInSlotGrid [data-slot]')?.click()); await wait(300);
+  await f.evaluate(() => document.getElementById('walkInSaveBtn').click()); await wait(1800);
+  await f.evaluate(() => document.querySelector('[data-view=calendario].nav-btn').click()); await wait(1200);
+  ok.push(['calendario del mes se ve', (await texto(f)).includes('LUN')]);
+  const citasApi = await page.evaluate(async (sl) => (await (await fetch(`/api/${sl}/staff/appointments`)).json()), A.slug);
+  ok.push(['la cita quedó guardada', JSON.stringify(citasApi).includes('Cliente de mostrador')]);
+
+  // Tarjeta y Flujo y Ajustes (con guardado)
+  f = await marco('tarjeta.html'); ok.push(['tarjeta pinta', (await texto(f)).includes('Tu tarjeta')]);
+  f = await marco('flujo.html'); ok.push(['flujo pinta', (await texto(f)).includes('INASISTENCIA')]);
+  f = await marco('ajustes.html');
+  await f.evaluate(() => { const e = document.getElementById('setConfirmWindow'); e.value = '5'; document.getElementById('saveWhatsappBtn').click(); }); await wait(1200);
+  const aj = await page.evaluate(async (sl) => (await (await fetch(`/api/${sl}/staff/settings`)).json()), A.slug);
+  ok.push(['ajustes se guardan', aj.confirm_window_hours === 5]);
+  f = await marco('equipo.html'); await wait(900);
+  ok.push(['equipo abre su ventana', (await texto(f)).includes('Invitar a alguien del equipo')]);
 } catch (e) { problems.push('flujo: ' + e.message); }
 await browser.close();
 for (const [n, v] of ok) console.log(v ? '✓' : '✗', n);
