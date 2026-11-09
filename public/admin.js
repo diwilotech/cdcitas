@@ -229,13 +229,24 @@ window.AdminShell = (function () {
     document.getElementById("userMenu").style.display = "block";
     document.getElementById("userNameSmall").textContent = user.name || user.email || "Usuario";
     document.querySelectorAll(".nav-btn").forEach((btn) => (btn.onclick = () => goView(btn.dataset.view)));
-    // Dentro del panel común (marco de /staff/citas): sin barra superior; el menú de secciones va arriba y el panel marca el módulo.
+    // Dentro del panel común (marco de /staff/<módulo>): sin barra superior; cada módulo muestra solo sus secciones y el panel marca el módulo.
+    const MOD = {
+      citas: { titulo: "Agenda", vistas: ["agenda", "calendario", "espacio"] },
+      clientes: { titulo: "Clientes", vistas: ["clientes"] },
+      servicios: { titulo: "Servicios", vistas: ["reglas"] },
+      tarjeta: { titulo: "Tarjeta digital", vistas: ["tarjeta"] },
+      flujo: { titulo: "Flujo", vistas: ["flujo"] },
+      ajustes: { titulo: "Ajustes", vistas: ["ajustes"] },
+      equipo: { titulo: "Equipo", vistas: ["ajustes"] },
+    };
+    const mod = MOD[window.CDC_START] || MOD.citas;
     if (window.CDC_EMBED) {
       document.body.classList.add("cdc-embed");
-      const titulo = window.CDC_START === "equipo" ? "Equipo" : "Citas";
-      window.parent.postMessage({ dw: "page", modulo: window.CDC_START === "equipo" ? "equipo" : "citas", titulo, url: location.pathname + location.search }, location.origin);
+      document.querySelectorAll(".nav-btn").forEach((b) => { b.style.display = mod.vistas.includes(b.dataset.view) ? "" : "none"; });
+      if (mod.vistas.length < 2) document.body.classList.add("cdc-solo");
+      window.parent.postMessage({ dw: "page", modulo: window.CDC_START || "citas", titulo: mod.titulo, url: location.pathname + location.search }, location.origin);
     }
-    goView(window.CDC_START === "equipo" ? "ajustes" : "agenda");
+    goView(mod.vistas[0]);
     if (window.CDC_START === "equipo") setTimeout(() => { try { openTeam(); } catch (_) { /* sin equipo */ } }, 300);
   }
 

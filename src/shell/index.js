@@ -50,6 +50,8 @@ async function handleCentral(req, env, ctx, url) {
   return centralApi(c);
 }
 
+// Cada módulo propio es una sección del mismo panel de siempre (admin.html), en modo incrustado.
+const PAGINAS_CITAS = ['citas', 'clientes', 'servicios', 'tarjeta', 'flujo', 'ajustes', 'equipo'];
 const aPanel = (url, slug, go) => Response.redirect(`${url.origin}/${slug}/admin${go ? `?go=${encodeURIComponent(go)}` : ''}`, 302);
 
 // Página de Citas dentro del panel: el mismo panel de siempre (admin.html) sin su barra, con el negocio inyectado.
@@ -78,8 +80,7 @@ export async function shellFetch(req, env, ctx) {
       if (!s) return Response.redirect(`${url.origin}/`, 302);
       const page = p.replace(/^\/staff\/?/, '').replace(/\.html$/, '').replace(/\/$/, '');
       if (req.method === 'GET' && req.headers.get('sec-fetch-dest') === 'document' && !p.startsWith('/staff/panel') && (page === '' || p.endsWith('.html'))) return aPanel(url, s.business_slug, p + url.search);
-      if (page === 'citas') return withHeaders(await embedCitas(env, req, s.business_slug, ''), SECURITY_HEADERS);
-      if (page === 'equipo') return withHeaders(await embedCitas(env, req, s.business_slug, 'equipo'), SECURITY_HEADERS);
+      if (PAGINAS_CITAS.includes(page)) return withHeaders(await embedCitas(env, req, s.business_slug, page), SECURITY_HEADERS);
       const central = CENTRALES.find((id) => page === id);
       if (central) return withHeaders(await centralPage(env, req, central), SECURITY_HEADERS);
       return withHeaders(await env.ASSETS.fetch(req), { ...SECURITY_HEADERS, 'cache-control': 'no-store' });

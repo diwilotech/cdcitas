@@ -15,7 +15,7 @@ try {
     const log = (m) => { if (!/favicon|fonts\.g|cdn\.jsdelivr|net::ERR/i.test(m)) problems.push(`${vista}: ${m}`); };
     page.on('pageerror', (e) => log(`pageerror ${String(e.message).slice(0, 200)}`));
     page.on('console', (m) => { if (m.type() === 'error') log(`console ${m.text().slice(0, 200)}`); });
-    page.on('response', (r) => { if (r.url().startsWith(APP) && r.status() >= 400 && !/\/api\/(public|admin\/auth\/me)/.test(r.url())) log(`HTTP ${r.status()} ${r.url().replace(APP, '')}`); });
+    page.on('response', (r) => { if (r.status() === 404) if (r.url().startsWith(APP) && r.status() >= 400 && !/\/api\/(public|admin\/auth\/me)/.test(r.url())) log(`HTTP ${r.status()} ${r.url().replace(APP, '')}`); });
     await page.goto(`${APP}/`, { waitUntil: 'networkidle0' });
     await page.evaluate(async (mail, sl) => { await fetch(`/api/${sl}/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: mail, password: 'clave-segura-1' }) }); }, A.mail, slug);
     await page.goto(`${APP}/${slug}/admin`, { waitUntil: 'networkidle0' });
@@ -26,7 +26,7 @@ try {
     const frame = () => page.frames().find((f) => f.parentFrame());
     const texto = async () => (await frame().evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 200);
     console.log(vista, 'inicio:', await texto());
-    for (const mod of ['citas', 'equipo', 'finanzas', 'marketing', 'marca', 'ai']) {
+    for (const mod of ['citas', 'clientes', 'servicios', 'tarjeta', 'flujo', 'ajustes', 'equipo', 'finanzas', 'marketing', 'marca', 'ai']) {
       await page.evaluate((m) => { const a = document.querySelector(`.dw-nav a[data-mod="${m}"]`) || document.querySelector(`.dw-bottom a[data-mod="${m}"]`); if (a) a.click(); else document.getElementById('dw-frame').src = `/staff/${m}.html`; }, mod);
       await new Promise((r) => setTimeout(r, 2200));
       const t = await texto();

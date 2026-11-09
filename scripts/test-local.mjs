@@ -27,6 +27,7 @@ try {
   check('Una página abierta directo lleva al panel con ?go=', doc.status === 302 && doc.headers.get('location')?.includes(`/${slug}/admin?go=`), doc.headers.get('location'));
   const citas = await app('/staff/citas', { headers: { 'sec-fetch-dest': 'iframe' } });
   check('/staff/citas trae el panel de Citas con el negocio inyectado', citas.status === 200 && citas.data.text?.includes(`name="cdc-slug" content="${slug}"`) && citas.data.text.includes('CDC_EMBED'), String(citas.status));
+  for (const pg of ['clientes', 'servicios', 'tarjeta', 'flujo', 'ajustes']) { const r = await app(`/staff/${pg}`, { headers: { 'sec-fetch-dest': 'iframe' } }); check(`/staff/${pg} abre su sección del panel`, r.status === 200 && r.data.text?.includes(`CDC_START=${JSON.stringify(pg)}`), String(r.status)); }
   const eq = await app('/staff/equipo', { headers: { 'sec-fetch-dest': 'iframe' } });
   check('/staff/equipo abre el equipo dentro de Citas', eq.status === 200 && eq.data.text?.includes('"equipo"'));
   const ini = await app('/staff/', { headers: { 'sec-fetch-dest': 'iframe' } });

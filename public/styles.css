@@ -250,3 +250,5 @@ body.cdc-embed .bottom-nav{ position:sticky; top:0; bottom:auto; border-top:0; b
 body.cdc-embed .bottom-nav .d-flex{ overflow-x:auto; }
 body.cdc-embed{ padding-bottom:1rem; }
 body.cdc-embed .tab-sticky-header{ top:48px; }
+body.cdc-embed.cdc-solo .bottom-nav{ display:none; }
+body.cdc-embed.cdc-solo .tab-sticky-header{ top:0; }
