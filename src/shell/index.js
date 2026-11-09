@@ -51,7 +51,7 @@ async function handleCentral(req, env, ctx, url) {
 }
 
 // Cada módulo propio es una sección del mismo panel de siempre (admin.html), en modo incrustado.
-const PAGINAS_CITAS = ['citas', 'clientes', 'servicios', 'tarjeta', 'flujo', 'ajustes', 'equipo'];
+const PAGINAS_CITAS = ['citas', 'tarjeta', 'flujo', 'ajustes', 'equipo'];
 const aPanel = (url, slug, go) => Response.redirect(`${url.origin}/${slug}/admin${go ? `?go=${encodeURIComponent(go)}` : ''}`, 302);
 
 // Página de Citas dentro del panel: el mismo panel de siempre (admin.html) sin su barra, con el negocio inyectado.

@@ -37,6 +37,13 @@
         const id = `f_${f.k}`;
         if (f.type === 'long') return `<textarea class="form-control" id="${id}" name="${f.k}" rows="3" ${req}>${esc(v)}</textarea>`;
         if (f.type === 'bool') return `<div class="form-check form-switch mt-1"><input class="form-check-input" type="checkbox" id="${id}" name="${f.k}" ${v ? 'checked' : ''}><label class="form-check-label" for="${id}">${esc(f.check || 'Sí')}</label></div>`;
+        if (f.type === 'multi' || f.type === 'days') {
+          const opts = f.type === 'days' ? ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((l, i) => [i, l]) : f.options;
+          const sel = (Array.isArray(v) ? v : []).map(String);
+          return opts.length ? `<div class="d-flex flex-wrap gap-2" data-multi="${f.k}">${opts.map(([ov, ol], i) => `<div class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" id="${id}_${i}" value="${esc(ov)}" ${sel.includes(String(ov)) ? 'checked' : ''}><label class="form-check-label small" for="${id}_${i}">${esc(ol)}</label></div>`).join('')}</div>` : `<p class="small text-body-secondary mb-0">${esc(f.empty || 'Sin opciones.')}</p>`;
+        }
+        if (f.type === 'image') return `${v ? `<img src="${esc(f.url ? f.url(v) : v)}" alt="" style="height:56px;border-radius:8px" class="d-block mb-1">` : ''}<input class="form-control" type="file" id="${id}" name="${f.k}" accept="image/*">`;
+        if (f.type === 'color') return `<input class="form-control form-control-color" type="color" id="${id}" name="${f.k}" value="${esc(v || '#0f5257')}">`;
         if (f.type === 'select' || f.ref) {
           const opts = f.ref ? [['', f.empty || '—'], ...lists[f.ref].map((r) => [r.id, r[LABEL[f.ref] || 'name'] || r.nombre || r.titulo || `#${r.id}`])] : f.options;
           return `<select class="form-select" id="${id}" name="${f.k}" ${req}>${opts.map(([ov, ol]) => `<option value="${esc(ov)}" ${String(ov) === String(v) ? 'selected' : ''}>${esc(ol)}</option>`).join('')}</select>`;
@@ -64,7 +71,11 @@
         f.classList.add('was-validated');
         if (!f.checkValidity()) return;
         const out = {};
-        for (const fd of fields) { const x = f.elements[fd.k]; out[fd.k] = fd.type === 'bool' ? x.checked : x.value.trim(); }
+        for (const fd of fields) {
+          if (fd.type === 'multi' || fd.type === 'days') { out[fd.k] = [...f.querySelectorAll(`[data-multi="${fd.k}"] input:checked`)].map((c) => (fd.type === 'days' ? Number(c.value) : c.value)); continue; }
+          const x = f.elements[fd.k];
+          out[fd.k] = fd.type === 'bool' ? x.checked : fd.type === 'image' ? (x.files[0] || null) : x.value.trim();
+        }
         finish(out);
       };
       setTimeout(() => f.querySelector('input:not([type=checkbox]), select, textarea')?.focus(), 250);
@@ -73,7 +84,8 @@
 
   // ---- tabla de una entidad con buscar, filtros, crear, editar y borrar ----
   // cfg: { el, base, entity, title, newText, columns, fields, filters, refs, rowActions(row), onAction(name, row, btn), defaults(), onChanged(),
-  //        onEdit(row, changed), extraButtons, readOnly, canDelete, empty, fixed: { campo: valor } }
+  //        onEdit(row, changed), extraButtons, readOnly, canDelete, empty, fixed: { campo: valor },
+//        source: { list(), save(row, out), remove(row) } (datos de una API propia en vez de /entity) }
   function table(cfg) {
     const host = document.createElement('div');
     cfg.el.replaceChildren(host);
@@ -92,7 +104,7 @@
       const qs = new URLSearchParams({ q: st.q });
       for (const [k, v] of Object.entries({ ...st.f, ...(cfg.fixed || {}) })) if (v !== '' && v != null) qs.set('f_' + k, v);
       try {
-        const [d] = await Promise.all([api(`${base()}?${qs}`), ...(cfg.refs || []).map(async (r) => { R[r] = await refs(cfg.base, r); })]);
+        const [d] = await Promise.all([cfg.source ? cfg.source.list().then((rows) => ({ rows: rows.filter((r) => (!st.q || Object.values(r).join(' ').toLowerCase().includes(st.q.toLowerCase())) && Object.entries(st.f).every(([k, v]) => v === '' || v == null || String(r[k]) === v)) })) : api(`${base()}?${qs}`), ...(cfg.refs || []).map(async (r) => { R[r] = await refs(cfg.base, r); })]);
         st.rows = d.rows;
         host.querySelector('[data-body]').innerHTML = st.rows.length ? `<div class="table-responsive-md"><table class="table dw-table align-middle mb-0 dw-clickable"><thead><tr>${cfg.columns.map((c) => `<th class="${c.cls || ''}">${esc(c.label)}</th>`).join('')}${cfg.rowActions ? '<th></th>' : ''}</tr></thead>
           <tbody>${st.rows.map((r) => `<tr data-id="${r.id}">${cfg.columns.map((c) => `<td data-label="${esc(c.label)}" class="${c.main ? 'dw-td-main ' : ''}${c.cls || ''}">${c.html(r, R)}</td>`).join('')}${cfg.rowActions ? `<td data-label="" class="text-end text-nowrap" data-stop>${cfg.rowActions(r)}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
@@ -105,11 +117,12 @@
       if (readOnlyApp) return;
       const canDel = cfg.canDelete ?? !!me?.canManage;
       const out = await form({ title: row ? `Editar ${cfg.title}` : (cfg.newText || 'Nuevo'), fields: cfg.fields, values: row ? { ...row } : { ...(cfg.defaults?.() || {}) }, base: cfg.base,
-        onDelete: row && canDel ? () => api(`${base()}/${row.id}`, { method: 'DELETE' }) : null });
+        onDelete: row && canDel ? () => (cfg.source ? cfg.source.remove(row) : api(`${base()}/${row.id}`, { method: 'DELETE' })) : null });
       if (out === 'deleted') { toast('Borrado'); changed(); return; }
       if (!out) return;
       try {
-        await api(row ? `${base()}/${row.id}` : base(), { method: row ? 'PATCH' : 'POST', body: row ? out : { ...out, ...(cfg.fixed || {}) } });
+        if (cfg.source) await cfg.source.save(row, out);
+        else await api(row ? `${base()}/${row.id}` : base(), { method: row ? 'PATCH' : 'POST', body: row ? out : { ...out, ...(cfg.fixed || {}) } });
         toast(row ? 'Guardado' : 'Creado'); changed();
       } catch (x) { toast(x.message, false); }
     }

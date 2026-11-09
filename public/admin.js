@@ -232,8 +232,6 @@ window.AdminShell = (function () {
     // Dentro del panel común (marco de /staff/<módulo>): sin barra superior; cada módulo muestra solo sus secciones y el panel marca el módulo.
     const MOD = {
       citas: { titulo: "Agenda", vistas: ["agenda", "calendario", "espacio"] },
-      clientes: { titulo: "Clientes", vistas: ["clientes"] },
-      servicios: { titulo: "Servicios", vistas: ["reglas"] },
       tarjeta: { titulo: "Tarjeta digital", vistas: ["tarjeta"] },
       flujo: { titulo: "Flujo", vistas: ["flujo"] },
       ajustes: { titulo: "Ajustes", vistas: ["ajustes"] },
