@@ -36,7 +36,7 @@ try {
     // vistas internas de Citas
     await page.evaluate(() => { document.getElementById('dw-frame').src = '/staff/citas'; });
     await new Promise((r) => setTimeout(r, 2500));
-    for (const v of ['calendario', 'espacio', 'reglas', 'clientes', 'tarjeta', 'flujo', 'ajustes']) {
+    for (const v of ['calendario', 'espacio']) {
       await frame().evaluate((x) => document.querySelector(`.nav-btn[data-view="${x}"]`)?.click(), v);
       await new Promise((r) => setTimeout(r, 1200));
       console.log(vista, 'citas/' + v, '→', (await texto()).slice(0, 90));

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda · CD Citas</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="/styles.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500&display=swap" rel="stylesheet">
+</head>
+<body class="cdc-embed pb-5">
+<div id="toastMini"></div>
+<div id="readOnlyBar" class="text-center small fw-semibold py-2 px-3" style="display:none;background:#c0472f;color:#fff;">
+  <i class="bi bi-lock-fill me-1"></i>La suscripción del negocio está vencida: puedes consultar, pero no guardar cambios.
+</div>
+<main id="appView" class="container pb-5" style="max-width:1100px;">
+<div class="d-flex flex-wrap gap-2 justify-content-end py-2" id="headerActions">
+  <button class="btn btn-sm btn-outline-dark header-action" data-view="agenda" data-bs-toggle="modal" data-bs-target="#blocksModal"><i class="bi bi-slash-circle"></i> Bloqueos</button>
+  <button class="btn btn-sm btn-brand header-action" data-view="agenda" id="walkInOpenBtn"><i class="bi bi-person-plus"></i> Añadir cita</button>
+  <button class="btn btn-sm btn-outline-dark header-action" data-view="calendario" data-bs-toggle="modal" data-bs-target="#businessHoursModal"><i class="bi bi-shop"></i> Apertura y Cierre</button>
+</div>
+<nav class="bottom-nav"><div class="container"><div class="d-flex gap-1 py-2"><button class="nav-btn flex-fill active" data-view="agenda"><i class="bi bi-grid-1x2-fill"></i>Agenda</button><button class="nav-btn flex-fill" data-view="calendario"><i class="bi bi-calendar3"></i>Calendario</button><button class="nav-btn flex-fill" data-view="espacio"><i class="bi bi-diagram-3"></i>Espacio</button></div></div></nav>
+    <section id="view-agenda" class="view active">
+      <div class="tab-sticky-header">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+          <div class="d-flex align-items-center gap-2">
+            <button class="month-nav-btn" id="agendaPrevBtn"><i class="bi bi-chevron-left"></i></button>
+            <span class="fw-semibold text-capitalize" id="agendaDayLabel" style="min-width:140px;">—</span>
+            <button class="month-nav-btn" id="agendaNextBtn"><i class="bi bi-chevron-right"></i></button>
+            <button class="btn btn-sm btn-link text-muted text-decoration-none ms-1 d-none d-sm-inline-block" id="agendaTodayBtn">Hoy</button>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge rounded-pill d-none d-sm-inline-block" style="background:rgba(15,82,87,.1);color:var(--primary);font-size:.8rem;" id="totalApptsBadge">— citas</span>
+            <div class="d-flex gap-1">
+              <button class="chip" id="viewModeDayBtn">1 día</button>
+              <button class="chip" id="viewModeMultiBtn">4 días</button>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex flex-nowrap gap-2 mb-2 overflow-x-auto" id="dayStrip"></div>
+        <div class="d-flex flex-nowrap gap-2 mb-2 overflow-x-auto" id="specialistFilter"></div>
+      </div>
+
+      <div class="card-panel p-0 mb-4 overflow-hidden">
+        <div class="agenda-scroll">
+          <div class="agenda-grid">
+            <div id="agendaHead"></div>
+            <div id="agendaFull"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="view-calendario" class="view" style="display:none;">
+      <div class="tab-sticky-header">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <button class="month-nav-btn" id="monthPrevBtn"><i class="bi bi-chevron-left"></i></button>
+          <h2 class="h6 fw-bold display-font mb-0" id="monthLabel">—</h2>
+          <button class="month-nav-btn" id="monthNextBtn"><i class="bi bi-chevron-right"></i></button>
+        </div>
+        <div class="d-flex flex-nowrap gap-3 mb-2 overflow-x-auto" id="monthLegend"></div>
+      </div>
+
+      <div class="card-panel p-4">
+        <div class="calendar-scroll">
+          <div class="month-grid mb-1">
+            <span class="dow-label">Lun</span><span class="dow-label">Mar</span><span class="dow-label">Mié</span>
+            <span class="dow-label">Jue</span><span class="dow-label">Vie</span><span class="dow-label">Sáb</span><span class="dow-label">Dom</span>
+          </div>
+          <div class="month-grid" id="monthGrid"></div>
+        </div>
+      </div>
+    </section>
+    <section id="view-espacio" class="view" style="display:none;">
+      <div class="card-panel p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="h6 fw-bold display-font mb-0"><i class="bi bi-diagram-3"></i> Tipos de espacio y Distribución</h2>
+          <button class="btn btn-sm btn-brand flex-shrink-0" id="spaceEditToggle"><i class="bi bi-pencil"></i> <span class="d-none d-sm-inline">Editar distribución</span></button>
+        </div>
+
+        <!-- El plano siempre se ve — es la forma de gestionar el espacio. Cada tarjeta del
+             toolbar es un tipo de espacio (nombre, descripción, color); tocarla añade una mesa de
+             ese tipo, y su lápiz (solo en modo edición) abre el modal para editar el tipo mismo —
+             así no hace falta una lista aparte más abajo. -->
+        <p class="text-muted small mb-2" id="spaceModeHint"></p>
+        <div class="space-toolbar mb-2" id="spaceToolbar"></div>
+        <div class="grid-scroll mb-2">
+          <div class="grid-container" id="floorGrid"></div>
+        </div>
+        <p class="text-muted small mb-0" id="spaceFooterHint"></p>
+      </div>
+    </section>
+</main>
+<div class="modal fade" id="assignSpaceModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0" id="assignSpaceTitle">Cita</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="assignSpaceCurrent" class="mb-3"></div>
+        <div id="assignSpaceClientInfo" class="mb-3"></div>
+        <div id="assignSpacePendingMove" class="mb-3" style="display:none;"></div>
+        <div id="assignSpaceActions" class="d-flex gap-2 mb-3 flex-wrap"></div>
+        <div id="assignSpaceConfirmTime" class="mb-3"></div>
+        <div id="assignSpaceMessageLog" class="mb-3" style="display:none;"></div>
+        <hr class="my-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <label class="label-xs mb-0">Espacio asignado</label>
+          <button class="btn btn-sm btn-link text-danger text-decoration-none p-0" id="assignSpaceRemoveBtn" style="display:none;">
+            <i class="bi bi-x-circle"></i> Quitar espacio
+          </button>
+        </div>
+        <div style="overflow-x:auto;"><div id="assignSpaceMiniMap" style="position:relative;"></div></div>
+        <p id="assignSpaceEmpty" class="text-muted small mb-0" style="display:none;">
+          No hay espacios creados. Ve a la pestaña <strong>Espacio</strong> para agregarlos.
+        </p>
+        <div id="assignSpaceSaveWrap" style="display:none;">
+          <button class="btn btn-brand w-100 mt-3" id="assignSpaceSaveBtn"><i class="bi bi-check2"></i> Guardar espacio</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="moveModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0">Mover cita</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">Propón una nueva fecha y hora; la cita queda pendiente hasta que el cliente confirme.</p>
+        <label class="label-xs d-block mb-1">Nueva fecha</label>
+        <input type="date" id="moveModalDate" class="form-control mb-2">
+        <input type="hidden" id="moveModalStart">
+        <label class="label-xs d-block mb-1">Nueva hora <span class="text-muted fw-normal">— en gris, horarios ocupados de ese especialista (puedes elegirlos igual si quieres forzar)</span></label>
+        <div class="d-flex flex-wrap gap-2 mb-3" id="moveSlotGrid" style="max-height:180px;overflow-y:auto;"></div>
+        <p class="small mb-2"><i class="bi bi-question-circle"></i> ¿Enviar un mensaje al cliente avisando la propuesta?</p>
+        <div class="d-flex gap-2">
+          <button class="btn btn-brand flex-fill" id="moveSendBtn">Sí, enviar</button>
+          <button class="btn btn-outline-dark flex-fill" id="moveNoSendBtn">No enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="walkInModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0">Añadir cita</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="label-xs d-block mb-1">Nombre completo</label>
+        <input type="text" id="walkInName" class="form-control mb-3">
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Correo</label><input type="email" id="walkInEmail" class="form-control"></div>
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Celular</label><input type="tel" id="walkInPhone" class="form-control"></div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Servicio</label><select id="walkInService" class="form-select"></select></div>
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Especialista</label><select id="walkInSpecialist" class="form-select"></select></div>
+        </div>
+        <label class="label-xs d-block mb-1">Fecha</label>
+        <input type="date" id="walkInDate" class="form-control mb-2">
+        <input type="hidden" id="walkInStart">
+        <label class="label-xs d-block mb-1">Hora <span class="text-muted fw-normal">— en gris, horarios ya ocupados (puedes elegirlos igual si quieres forzar)</span></label>
+        <div class="d-flex flex-wrap gap-2 mb-3" id="walkInSlotGrid" style="max-height:180px;overflow-y:auto;"></div>
+        <button class="btn btn-brand w-100" id="walkInSaveBtn"><i class="bi bi-check2-circle"></i> Registrar cita</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="tableScheduleModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0" id="tableScheduleTitle">Horario</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="tableScheduleConflictBanner" class="small fw-semibold mb-3" style="display:none;color:var(--danger);"><i class="bi bi-exclamation-triangle-fill"></i> Este espacio tiene citas cruzadas.</div>
+        <div style="max-height:60vh; overflow-y:auto;"><div id="tableScheduleTimeline" class="t-timeline"></div></div>
+        <p id="tableScheduleEmpty" class="text-muted small mb-0 mt-3" style="display:none;">Sin citas asignadas a este espacio hoy.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="editSpaceTypeModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0" id="editSpaceTypeModalTitle">Editar tipo de espacio</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="label-xs d-block mb-1">Nombre</label>
+        <input type="text" id="editSpaceTypeLabel" class="form-control mb-3" placeholder="Mesa, Cabina, Terraza...">
+        <label class="label-xs d-block mb-1">Descripción (opcional)</label>
+        <textarea id="editSpaceTypeDescription" class="form-control mb-3" rows="2"></textarea>
+        <label class="label-xs d-block mb-2">Color</label>
+        <input type="hidden" id="editSpaceTypeColor">
+        <div class="d-flex flex-wrap gap-2 mb-3" id="editSpaceTypeColorPicker"></div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-danger" id="editSpaceTypeDeleteBtn"><i class="bi bi-trash3"></i> Eliminar</button>
+          <button class="btn btn-brand flex-fill" id="editSpaceTypeSaveBtn">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="editSpaceModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0">Editar espacio</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="label-xs d-block mb-1">Nombre</label>
+        <input type="text" id="editSpaceName" class="form-control mb-3">
+        <label class="label-xs d-block mb-1">Tipo de espacio</label>
+        <select id="editSpaceType" class="form-select mb-1"></select>
+        <p class="text-muted small mt-1 mb-3">Determina qué servicios pueden usar este espacio (Reglas → Servicios) y de qué color se ve en el plano (color del tipo, en la pestaña Espacio).</p>
+        <button class="btn btn-brand w-100" id="editSpaceSaveBtn">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="blocksModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0"><i class="bi bi-slash-circle"></i> Bloqueos</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">Aparecen también dentro de la agenda, en la columna del especialista.</p>
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Especialista</label><select id="blockSpecialist" class="form-select"></select></div>
+          <div class="col-sm-3"><label class="label-xs d-block mb-1">Fecha</label><input type="date" id="blockDate" class="form-control"></div>
+        </div>
+        <label class="label-xs d-block mb-1">Horarios de ese día <span class="text-muted fw-normal">— clic para llenar el inicio</span></label>
+        <div class="d-flex flex-wrap gap-2 mb-3" id="blockSlotGrid" style="max-height:150px;overflow-y:auto;"></div>
+        <div class="row g-3 mb-3">
+          <div class="col-sm-3"><label class="label-xs d-block mb-1">Inicio</label><input type="time" id="blockStart" class="form-control"></div>
+          <div class="col-sm-3"><label class="label-xs d-block mb-1">Fin</label><input type="time" id="blockEnd" class="form-control"></div>
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Motivo</label><input type="text" id="blockReason" class="form-control" placeholder="Almuerzo, vacaciones..."></div>
+        </div>
+        <button class="btn btn-brand w-100" id="blockAddBtn">Aplicar bloqueo</button>
+        <div id="blocksList" class="mt-4 small"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="dayPreviewModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <div><h2 class="h6 fw-bold display-font mb-0" id="dayPreviewTitle">Día</h2>
+          <p class="text-muted small mb-0" id="dayPreviewCount"></p></div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="p-3 pb-0">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="label-xs mb-0"><i class="bi bi-shop"></i> Horario de este día</label>
+            <button class="btn btn-sm btn-link text-danger text-decoration-none p-0" id="dayPreviewResetBtn">
+              <i class="bi bi-arrow-counterclockwise"></i> Quitar excepción
+            </button>
+          </div>
+          <div class="d-flex align-items-end gap-3 flex-wrap">
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" id="editDayClosed">
+              <label class="form-check-label small" for="editDayClosed">Cerrado este día</label>
+            </div>
+            <div><label class="label-xs d-block mb-1">Apertura</label><input type="number" min="0" max="23" id="editDayOpen" class="form-control form-control-sm" style="width:80px;"></div>
+            <div><label class="label-xs d-block mb-1">Cierre</label><input type="number" min="0" max="23" id="editDayClose" class="form-control form-control-sm" style="width:80px;"></div>
+            <button class="btn btn-sm btn-brand" id="dayPreviewSaveHoursBtn">Guardar horario</button>
+          </div>
+        </div>
+        <hr class="my-3">
+        <div class="px-3">
+          <label class="label-xs d-block mb-2"><i class="bi bi-people"></i> Personal que trabaja este día</label>
+          <div class="d-flex flex-column gap-2 mb-3" id="dayPreviewStaffList"></div>
+        </div>
+        <hr class="my-3">
+        <div class="agenda-scroll" style="max-height:60vh; overflow-y:auto;">
+          <div class="agenda-grid">
+            <div id="dayPreviewHead"></div>
+            <div id="dayPreviewBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="bulkReagendarModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0"><i class="bi bi-exclamation-triangle"></i> Confirmar cambio</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" id="bulkReagendarCancelX"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-1">Vas a marcar a <strong id="bulkReagendarSpName"></strong> como libre el <strong id="bulkReagendarDate"></strong>.</p>
+        <p class="text-muted small mb-3">Estas citas quedarán "Por reagendar":</p>
+        <div id="bulkReagendarList" class="mb-3" style="max-height:40vh;overflow-y:auto;"></div>
+        <p class="small mb-2"><i class="bi bi-question-circle"></i> ¿Avisar por WhatsApp a cada cliente?</p>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-dark flex-fill" id="bulkReagendarCancelBtn">Cancelar</button>
+          <button class="btn btn-outline-dark flex-fill" id="bulkReagendarNoNotifyBtn">Sin avisar</button>
+          <button class="btn btn-brand flex-fill" id="bulkReagendarConfirmBtn"><i class="bi bi-send"></i> Confirmar y avisar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="businessHoursModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:16px; border:none;">
+      <div class="modal-header" style="border-bottom:1px solid var(--line);">
+        <h2 class="h6 fw-bold display-font mb-0"><i class="bi bi-shop"></i> Apertura y Cierre</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="label-xs d-block mb-2">Días que abre</label>
+        <div class="d-flex flex-wrap gap-2 mb-3" id="businessDaysChips"></div>
+        <div class="row g-3">
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Hora de apertura</label><input type="number" min="0" max="23" id="businessOpenHour" class="form-control"></div>
+          <div class="col-sm-6"><label class="label-xs d-block mb-1">Hora de cierre</label><input type="number" min="0" max="23" id="businessCloseHour" class="form-control"></div>
+        </div>
+        <button class="btn btn-brand w-100 mt-3" id="businessHoursSaveBtn">Guardar</button>
+        <p class="text-muted small mt-3 mb-0"><i class="bi bi-info-circle"></i> Para un día puntual (festivo, horario especial), edítalo en el Calendario junto al número del día.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/app.js"></script>
+<script src="/js/pages/citas-base.js"></script>
+<script src="/admin-agenda.js"></script>
+<script src="/admin-calendar.js"></script>
+<script src="/admin-floorplan.js"></script>
+<script src="/js/pages/citas-agenda.js"></script>
+</body>
+</html>

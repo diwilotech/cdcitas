@@ -22,42 +22,8 @@ window.AdminShell = (function () {
     toast("No cargó app.js. Recarga con Ctrl+Shift+R o revisa la consola del navegador (F12).", false);
   }
 
-  const VIEWS = ["agenda", "calendario", "espacio", "reglas", "clientes", "tarjeta", "flujo", "ajustes"];
-  const VIEW_TITLES = { agenda: "Agenda", calendario: "Calendario", espacio: "Espacio", reglas: "Reglas", clientes: "Clientes", tarjeta: "Tarjeta", flujo: "Flujo", ajustes: "Ajustes" };
-
-  function syncHeaderHeight() {
-    const h = document.querySelector("header.topbar").offsetHeight;
-    document.documentElement.style.setProperty("--header-h", `${h}px`);
-  }
-  window.addEventListener("resize", syncHeaderHeight);
-
-  function goView(view) {
-    VIEWS.forEach((v) => { document.getElementById(`view-${v}`).style.display = v === view ? "block" : "none"; });
-    document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
-    document.querySelectorAll(".header-action").forEach((b) => b.classList.toggle("d-none", b.dataset.view !== view));
-    document.getElementById("pageTitle").textContent = VIEW_TITLES[view] || "Panel";
-    syncHeaderHeight();
-    if (view === "agenda") window.Agenda.render();
-    if (view === "calendario") window.MonthCalendar.render();
-    if (view === "espacio") window.FloorPlan.render();
-    if (view === "reglas") window.Rules.render();
-    if (view === "clientes") window.Clients.render();
-    if (view === "tarjeta") window.Tarjeta.render();
-    if (view === "flujo") window.Flujo.render();
-    if (view === "ajustes") { loadAjustes(); renderTemplates(); }
-  }
-
-  async function boot() {
-    // Link de invitación: /:slug/admin#invite=<token> (en el fragmento, no queda en logs).
-    const invite = new URLSearchParams(location.hash.slice(1)).get("invite");
-    if (invite) return showInvite(invite);
-    try {
-      showApp(await api("/staff/me"));
-    } catch {
-      showLogin();
-    }
-  }
-
+  // Esta página es solo el ingreso (y el link de invitación). Con sesión, el servidor entrega el panel común y cada módulo
+  // vive en su propia página: public/staff/{citas,tarjeta,flujo,ajustes}.html.
   // Pantalla de ingreso: banner de Diwilo + tarjeta con el nombre y logo del negocio.
   function showAuth() {
     document.getElementById("authShell").style.display = "grid";
@@ -100,7 +66,7 @@ window.AdminShell = (function () {
         await api("/auth/invite", { method: "POST", body: { token, password, name: document.getElementById("inviteName").value.trim() } });
         history.replaceState(null, "", location.pathname);
         document.getElementById("inviteView").style.display = "none";
-        showApp(await api("/staff/me"));
+        location.reload();
       } catch (e) { toast(e.message, false); }
     };
   }
@@ -112,7 +78,7 @@ window.AdminShell = (function () {
     try {
       const r = await api("/auth/login", { method: "POST", body: { email, password } });
       if (r.mustSetPassword) return showInvite(r.invite, "El PIN ya no se usa: crea una contraseña para seguir.");
-      showApp(await api("/staff/me"));
+      location.reload();
     } catch (e) { toast(e.message, false); }
   };
   document.getElementById("loginPassword").addEventListener("keydown", (e) => {
@@ -120,235 +86,13 @@ window.AdminShell = (function () {
   });
 
 
-  // Ventana "Cambiar contraseña" (misma en todas las apps de Diwilo). enviar(actual, nueva) devuelve un error o nada.
-  function abrirCambioClave(enviar) {
-    let d = document.getElementById('dlgClave');
-    if (!d) {
-      d = document.createElement('dialog');
-      d.id = 'dlgClave';
-      d.style.cssText = 'border:0;border-radius:14px;padding:22px;max-width:360px;width:calc(100% - 32px);box-shadow:0 20px 50px rgba(0,0,0,.25)';
-      d.innerHTML = '<form class="d-grid gap-2">' +
-        '<h2 class="h5 mb-1">Cambiar contraseña</h2>' +
-        '<input class="form-control" type="password" name="current" placeholder="Contraseña actual" autocomplete="current-password" required>' +
-        '<input class="form-control" type="password" name="password" placeholder="Nueva contraseña (mínimo 8)" minlength="8" maxlength="200" autocomplete="new-password" required>' +
-        '<input class="form-control" type="password" name="confirm" placeholder="Repite la nueva contraseña" minlength="8" maxlength="200" autocomplete="new-password" required>' +
-        '<div class="small text-danger" data-err></div>' +
-        '<div class="d-flex gap-2 justify-content-end mt-1"><button type="button" class="btn btn-light" data-cancel>Cancelar</button><button class="btn btn-primary" data-ok>Guardar</button></div>' +
-        '</form>';
-      document.body.appendChild(d);
-      d.querySelector('[data-cancel]').onclick = () => d.close();
-    }
-    const f = d.querySelector('form'), err = d.querySelector('[data-err]'), ok = d.querySelector('[data-ok]');
-    f.reset(); err.textContent = '';
-    f.onsubmit = async (e) => {
-      e.preventDefault();
-      if (f.password.value !== f.confirm.value) { err.textContent = 'Las contraseñas nuevas no coinciden'; return; }
-      ok.disabled = true;
-      try {
-        const msg = await enviar(f.current.value, f.password.value);
-        if (msg) err.textContent = msg;
-        else { d.close(); alert('Contraseña actualizada. Se cerraron tus otras sesiones abiertas.'); }
-      } catch (_) { err.textContent = 'No se pudo conectar. Intenta de nuevo.'; }
-      finally { ok.disabled = false; }
-    };
-    d.showModal();
-  }
 
-  document.getElementById("passwordBtn").onclick = () => abrirCambioClave(async (current, password) => {
-    try { await api("/auth/password", { method: "POST", body: { current, password } }); return null; }
-    catch (e) { return e.message; }
-  });
-
-  // Equipo: el dueño invita y quita a su personal. (El dueño solo lo cambia Diwilo.)
-  const ROLE_TXT = { owner: "Dueño", staff: "Personal" };
-  async function openTeam() {
-    let m = document.getElementById("teamModal");
-    if (!m) {
-      m = document.createElement("div");
-      m.className = "modal fade"; m.id = "teamModal"; m.tabIndex = -1;
-      m.innerHTML = `<div class="modal-dialog modal-dialog-scrollable"><div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title">Equipo</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
-        <div class="modal-body"><ul class="list-group mb-3" id="teamList"></ul>
-          <form id="teamForm" class="d-grid gap-2"><div class="small fw-semibold">Invitar a alguien del equipo</div>
-            <input class="form-control" type="email" name="email" placeholder="Correo" required>
-            <input class="form-control" name="name" placeholder="Nombre (opcional)" maxlength="100">
-            <button class="btn btn-brand">Invitar</button></form>
-          <div class="small text-muted mt-2" id="teamNote"></div>
-          <div class="alert alert-light border mt-3 small" id="teamLink" style="display:none"></div></div></div></div>`;
-      document.body.appendChild(m);
-      m.querySelector("#teamForm").onsubmit = async (e) => {
-        e.preventDefault();
-        const f = e.target;
-        try { const r = await api("/staff/team", { method: "POST", body: { email: f.email.value, name: f.name.value } }); f.reset(); showTeamLink(r.invite_url, f.email.value); loadTeam(); }
-        catch (x) { toast(x.message, false); }
-      };
-      m.querySelector("#teamList").onclick = async (e) => {
-        const li = e.target.closest("[data-id]"); if (!li) return;
-        if (e.target.closest("[data-link]")) {
-          try { const r = await api(`/staff/team/${li.dataset.id}/invite`, { method: "POST" }); showTeamLink(r.invite_url, li.dataset.email); } catch (x) { toast(x.message, false); }
-        }
-        if (e.target.closest("[data-del]")) {
-          if (!li.classList.contains("confirm")) { li.classList.add("confirm"); e.target.closest("[data-del]").textContent = "¿Quitar?"; return; }
-          try { await api(`/staff/team/${li.dataset.id}`, { method: "DELETE" }); toast("Quitado del equipo."); loadTeam(); } catch (x) { toast(x.message, false); }
-        }
-      };
-    }
-    m.querySelector("#teamLink").style.display = "none";
-    await loadTeam();
-    bootstrap.Modal.getOrCreateInstance(m).show();
-  }
-  function showTeamLink(url, who) {
-    const el = document.getElementById("teamLink");
-    el.style.display = "block";
-    el.innerHTML = `<div class="mb-1">Link para <b></b>: con él crea (o restablece) su contraseña. Sirve una sola vez.</div><code class="d-block text-break"></code>
-      <div class="d-flex gap-2 mt-2"><button class="btn btn-sm btn-outline-dark" type="button" data-copy>Copiar</button><a class="btn btn-sm btn-outline-success" target="_blank" rel="noopener">WhatsApp</a></div>`;
-    el.querySelector("b").textContent = who; el.querySelector("code").textContent = url;
-    el.querySelector("a").href = "https://wa.me/?text=" + encodeURIComponent("Crea tu contraseña para entrar a la agenda: " + url);
-    el.querySelector("[data-copy]").onclick = async () => { await navigator.clipboard.writeText(url); toast("Link copiado."); };
-  }
-  async function loadTeam() {
-    const { users, canManage } = await api("/staff/team");
-    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-    document.getElementById("teamList").innerHTML = users.map((u) => `<li class="list-group-item d-flex align-items-center gap-2" data-id="${esc(u.id)}" data-email="${esc(u.email)}">
-      <div class="flex-grow-1"><div class="fw-semibold">${esc(u.name || u.email)}</div><div class="small text-muted">${esc(u.email)} · ${ROLE_TXT[u.role] || esc(u.role)}${u.status === "invited" ? " · invitación pendiente" : ""}</div></div>
-      ${canManage && u.role !== "owner" ? `<button class="btn btn-sm btn-outline-dark" data-link title="Link para crear o restablecer su contraseña"><i class="bi bi-key"></i></button><button class="btn btn-sm btn-outline-danger" data-del>Quitar</button>` : ""}</li>`).join("");
-    document.getElementById("teamForm").style.display = canManage ? "grid" : "none";
-    document.getElementById("teamNote").textContent = canManage ? "El dueño del negocio solo se cambia desde Diwilo." : "Solo el dueño puede invitar o quitar personas del equipo.";
-  }
-  document.getElementById("teamBtn").onclick = () => openTeam().catch((x) => toast(x.message, false));
-
-  document.getElementById("logoutBtn").onclick = async () => {
-    await api("/auth/logout", { method: "POST" });
-    location.reload();
-  };
-
-  function showApp(user) {
-    document.getElementById("authShell").style.display = "none";
-    document.getElementById("readOnlyBar").style.display = user.readOnly ? "block" : "none";
-    document.getElementById("appView").style.display = "block";
-    document.getElementById("userMenu").style.display = "block";
-    document.getElementById("userNameSmall").textContent = user.name || user.email || "Usuario";
-    document.querySelectorAll(".nav-btn").forEach((btn) => (btn.onclick = () => goView(btn.dataset.view)));
-    // Dentro del panel común (marco de /staff/<módulo>): sin barra superior; cada módulo muestra solo sus secciones y el panel marca el módulo.
-    const MOD = {
-      citas: { titulo: "Agenda", vistas: ["agenda", "calendario", "espacio"] },
-      tarjeta: { titulo: "Tarjeta digital", vistas: ["tarjeta"] },
-      flujo: { titulo: "Flujo", vistas: ["flujo"] },
-      ajustes: { titulo: "Ajustes", vistas: ["ajustes"] },
-      equipo: { titulo: "Equipo", vistas: ["ajustes"] },
-    };
-    const mod = MOD[window.CDC_START] || MOD.citas;
-    if (window.CDC_EMBED) {
-      document.body.classList.add("cdc-embed");
-      document.querySelectorAll(".nav-btn").forEach((b) => { b.style.display = mod.vistas.includes(b.dataset.view) ? "" : "none"; });
-      if (mod.vistas.length < 2) document.body.classList.add("cdc-solo");
-      window.parent.postMessage({ dw: "page", modulo: window.CDC_START || "citas", titulo: mod.titulo, url: location.pathname + location.search }, location.origin);
-    }
-    goView(mod.vistas[0]);
-    if (window.CDC_START === "equipo") setTimeout(() => { try { openTeam(); } catch (_) { /* sin equipo */ } }, 300);
-  }
-
-  document.getElementById("copyWebhookBtn").onclick = async () => {
-    await navigator.clipboard.writeText(document.getElementById("setWebhookUrl").value);
-    toast("Link copiado.");
-  };
-
-  document.getElementById("rotateWebhookBtn").onclick = async () => {
-    if (!confirm("El link anterior dejará de funcionar. ¿Generar uno nuevo?")) return;
-    const { webhookToken } = await api("/staff/webhook/rotate", { method: "POST" });
-    document.getElementById("setWebhookUrl").value = `${location.origin}/api/${tenantSlug()}/webhook/evolution/${webhookToken}`;
-    toast("Link nuevo generado. Actualízalo en Evolution API.");
-  };
-
-  async function loadAjustes() {
-    const biz = await api("/staff/settings").catch(() => null);
-    if (!biz) return;
-    document.getElementById("setTimezoneOffset").value = String(biz.timezone_offset ?? -5);
-    document.getElementById("setWhatsappEnabled").checked = !!biz.whatsapp_enabled;
-    document.getElementById("setEvoUrl").value = biz.evolution_url || "";
-    document.getElementById("setEvoInstance").value = biz.evolution_instance || "";
-    document.getElementById("setEvoApiKey").value = biz.evolution_api_key || "";
-    document.getElementById("setWhatsappCountryCode").value = biz.whatsapp_country_code || "57";
-    document.getElementById("setWhatsappBusinessNumber").value = biz.whatsapp_business_number || "";
-    document.getElementById("testWhatsappPrefix").textContent = `+${biz.whatsapp_country_code || "57"}`;
-    document.getElementById("setWebhookUrl").value = `${location.origin}/api/${tenantSlug()}/webhook/evolution/${biz.webhook_token}`;
-    document.getElementById("setConfirmWindow").value = biz.confirm_window_hours || 3;
-    document.getElementById("setGmailUser").value = biz.gmail_user || "";
-    document.getElementById("setGmailAppPassword").value = biz.gmail_app_password || "";
-  }
-
-  document.getElementById("saveWhatsappBtn").onclick = async () => {
-    const countryCode = document.getElementById("setWhatsappCountryCode").value.trim().replace(/\D/g, "") || "57";
-    await api("/staff/settings", { method: "PATCH", body: {
-      timezoneOffset: parseInt(document.getElementById("setTimezoneOffset").value, 10),
-      whatsappEnabled: document.getElementById("setWhatsappEnabled").checked,
-      evolutionUrl: document.getElementById("setEvoUrl").value.trim(),
-      evolutionInstance: document.getElementById("setEvoInstance").value.trim(),
-      evolutionApiKey: document.getElementById("setEvoApiKey").value.trim(),
-      whatsappCountryCode: countryCode,
-      whatsappBusinessNumber: document.getElementById("setWhatsappBusinessNumber").value.trim().replace(/\D/g, ""),
-      confirmWindowHours: Math.max(1, parseInt(document.getElementById("setConfirmWindow").value, 10) || 3),
-    } });
-    document.getElementById("setWhatsappCountryCode").value = countryCode;
-    document.getElementById("testWhatsappPrefix").textContent = `+${countryCode}`;
-    toast("Locación guardada.");
-  };
-
-  document.getElementById("testWhatsappBtn").onclick = async () => {
-    const phone = document.getElementById("testWhatsappPhone").value.trim();
-    if (!phone) return toast("Escribe un número.", false);
-    const btn = document.getElementById("testWhatsappBtn");
-    btn.disabled = true;
-    try {
-      await api("/staff/whatsapp/test", { method: "POST", body: { phone } });
-      toast("Mensaje de prueba enviado — revisa ese WhatsApp.");
-    } catch (e) { toast(e.message, false); }
-    btn.disabled = false;
-  };
-
-  document.getElementById("saveEmailBtn").onclick = async () => {
-    await api("/staff/settings", { method: "PATCH", body: {
-      gmailUser: document.getElementById("setGmailUser").value.trim(),
-      gmailAppPassword: document.getElementById("setGmailAppPassword").value.trim(),
-    } });
-    toast("Correo guardado.");
-  };
-
-  document.getElementById("testEmailBtn").onclick = async () => {
-    const email = document.getElementById("testEmailAddress").value.trim();
-    if (!email) return toast("Escribe un correo.", false);
-    const btn = document.getElementById("testEmailBtn");
-    btn.disabled = true;
-    try {
-      await api("/staff/email/test", { method: "POST", body: { email } });
-      toast("Correo de prueba enviado — revisa esa bandeja de entrada.");
-    } catch (e) { toast(e.message, false); }
-    btn.disabled = false;
-  };
-
-  const TEMPLATE_LABELS = {
-    booked: "Cita agendada", cancel: "Cancelación", reschedule: "Pedir reagendar", move: "Mover cita",
-    reopen: "Reabrir cita", reminder: "Recordatorio",
-    confirmWhatsapp: "Mensaje que el cliente manda por WhatsApp para confirmar", confirmEmail: "Pedir confirmación (correo)",
-    confirmed: "Cita confirmada", selfCancel: "Cliente canceló (link)", selfReschedule: "Cliente se reagendó (link)",
-  };
-
-  async function renderTemplates() {
-    const templates = await api("/staff/templates").catch(() => ({}));
-    document.getElementById("templatesForm").innerHTML = Object.entries(templates).map(([key, body]) => `
-      <div class="col-md-4">
-        <label class="label-xs d-block mb-1">${TEMPLATE_LABELS[key] || key}</label>
-        <textarea class="form-control" rows="4" data-key="${key}">${body}</textarea>
-      </div>`).join("") + `<div class="col-12"><button class="btn btn-brand btn-sm" id="saveTemplatesBtn">Guardar plantillas</button></div>`;
-    document.getElementById("saveTemplatesBtn").onclick = async () => {
-      for (const ta of document.querySelectorAll("#templatesForm textarea")) {
-        await api("/staff/templates", { method: "PATCH", body: { key: ta.dataset.key, body: ta.value } });
-      }
-      toast("Plantillas guardadas.");
-    };
+  async function boot() {
+    // Link de invitación: /:slug/admin#invite=<token> (en el fragmento, no queda en logs).
+    const invite = new URLSearchParams(location.hash.slice(1)).get("invite");
+    if (invite) return showInvite(invite);
+    try { await api("/staff/me"); location.reload(); } catch { showLogin(); }
   }
 
   boot();
-
-  return { goView };
 })();
