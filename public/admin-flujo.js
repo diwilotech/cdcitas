@@ -65,12 +65,51 @@ window.Flujo = (function () {
       f.last7Days.map((d) => ({ label: dows[new Date(d.date + "T00:00:00").getDay()], value: d.revenue })),
       (v) => "$" + Math.round(v / 1000) + "k");
 
+    profundidad(f).catch(() => {});
+
     const maxService = Math.max(...f.byService.map((s) => s.revenue), 1);
     document.getElementById("flujoByService").innerHTML = f.byService.length ? f.byService.map((s) => `
       <div>
         <div class="d-flex justify-content-between small mb-1"><span class="fw-semibold">${s.service}</span><span class="text-muted">${money(s.revenue)}</span></div>
         <div class="progress" style="height:8px;border-radius:6px;"><div class="progress-bar" style="width:${(s.revenue / maxService) * 100}%;background:var(--accent);"></div></div>
       </div>`).join("") : `<p class="text-muted small mb-0">Todavía no hay citas completadas.</p>`;
+  }
+
+  // Descarga un CSV autenticado por la cookie de sesión
+  async function descargar(ruta, nombre) {
+    const slug = (location.pathname.split("/").filter(Boolean)[0]) || "";
+    const r = await fetch(`/api/${slug}${ruta}`, { credentials: "same-origin" });
+    if (!r.ok) { window.CDC.toast("No se pudo descargar", false); return; }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = nombre; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  document.getElementById("csvCitas")?.addEventListener("click", () => descargar("/staff/export/citas", "citas.csv"));
+  document.getElementById("csvClientes")?.addEventListener("click", () => descargar("/staff/export/clientes", "clientes.csv"));
+
+  // Más profundidad con el kit común (dwviz): especialistas, días, mejores clientes y embudo
+  async function profundidad(f) {
+    const V = window.DwViz; if (!V) return;
+    const num = (v) => Number(v || 0).toLocaleString("es-CO");
+    if (f.bySpecialist?.length) V.ranking(document.getElementById("flujoSpec"), f.bySpecialist.map((x) => ({ nombre: x.name, valor: x.citas, detalle: money(x.revenue) })), { fmt: num });
+    else V.vacio(document.getElementById("flujoSpec"), { icono: "bi-person-badge", titulo: "Sin citas todavía", texto: "Aquí verás quién atiende más." });
+    const dows = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    V.barras(document.getElementById("flujoDow"), { etiquetas: dows, series: [{ nombre: "Citas", datos: f.byDow }], fmt: num });
+    if (f.topClients?.length) V.ranking(document.getElementById("flujoTop"), f.topClients.map((x) => ({ nombre: x.name, valor: x.revenue, detalle: `${x.citas} ${x.citas === 1 ? "cita" : "citas"}` })), { fmt: money });
+    else V.vacio(document.getElementById("flujoTop"), { icono: "bi-people", titulo: "Aún sin ingresos", texto: "Aparecen cuando completes citas." });
+    await embudo();
+  }
+  async function embudo() {
+    const V = window.DwViz, host = document.getElementById("flujoKanban"); if (!V || !host) return;
+    const { rows, today } = await api("/staff/embudo").catch(() => ({ rows: [], today: "" }));
+    const COLS = [["pending", "Por confirmar", "#FBBF24", (r) => r.status === "pending_confirmation"], ["confirmed", "Confirmadas", "#60A5FA", (r) => r.status === "confirmed"],
+      ["reagendar", "Por reagendar", "#F472B6", (r) => r.status === "reagendar"], ["completed", "Completadas", "#34D399", (r) => r.status === "completed"], ["lost", "Canceladas / no vino", "#F87171", (r) => ["cancelled", "no-show"].includes(r.status)]];
+    const pintar = () => V.kanban(host, { fmt: money,
+      columnas: COLS.map(([id, titulo, color, test]) => ({ id, titulo, color, items: rows.filter(test).map((r) => ({ id: r.id, titulo: r.client, detalle: `${r.date === today ? "hoy" : r.date} ${r.start} · ${r.service} · ${r.specialist}`, valor: r.price })) })),
+      mover: async (id, desde, hasta) => {
+        if (hasta !== "completed") { window.CDC.toast("Para cancelar o reagendar usa la Agenda: así se avisa al cliente", false); return; }
+        try { await api(`/staff/appointments/${id}/complete`, { method: "POST" }); const r = rows.find((x) => x.id === id); if (r) r.status = "completed"; window.CDC.toast("Cita completada"); pintar(); } catch (e) { window.CDC.toast(e.message || "No se pudo", false); }
+      } });
+    pintar();
   }
 
   return { render };

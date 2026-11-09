@@ -384,9 +384,22 @@
         <div id="flujoBars" class="d-flex align-items-end gap-3" style="height:160px;"></div>
       </div>
 
-      <div class="card-panel p-4">
+      <div class="card-panel p-4 mb-4">
         <div class="label-xs mb-3">Ingresos por Servicio</div>
         <div id="flujoByService" class="d-flex flex-column gap-3"></div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-lg-6"><div class="card-panel p-4 h-100"><div class="label-xs mb-3">Citas por especialista (30 días)</div><div id="flujoSpec"></div></div></div>
+        <div class="col-lg-6"><div class="card-panel p-4 h-100"><div class="label-xs mb-3">Qué días se llena la agenda (30 días)</div><div id="flujoDow"></div></div></div>
+        <div class="col-lg-6"><div class="card-panel p-4 h-100"><div class="label-xs mb-3">Clientes que más dejan (90 días)</div><div id="flujoTop"></div></div></div>
+        <div class="col-lg-6"><div class="card-panel p-4 h-100"><div class="label-xs mb-1">Embudo de citas</div><p class="small text-muted mb-2">De hace 7 días a 14 días adelante. Arrastra una cita a «Completada» al atenderla.</p><div id="flujoKanban"></div></div></div>
+      </div>
+
+      <div class="card-panel p-4 d-flex flex-wrap gap-2 align-items-center">
+        <div class="label-xs me-auto mb-0">Descargar</div>
+        <button class="btn btn-sm btn-outline-secondary" id="csvCitas"><i class="bi bi-download me-1"></i>Citas (CSV)</button>
+        <button class="btn btn-sm btn-outline-secondary" id="csvClientes"><i class="bi bi-download me-1"></i>Clientes (CSV)</button>
       </div>
     </section>
 
@@ -1054,6 +1067,7 @@
 <script src="/admin-rules.js"></script>
 <script src="/admin-clients.js"></script>
 <script src="/admin-tarjeta.js"></script>
+<script src="/dwviz.js"></script>
 <script src="/admin-flujo.js"></script>
 <script src="/admin.js"></script>
 </body>
