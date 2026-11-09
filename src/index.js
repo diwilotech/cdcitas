@@ -1,43 +1,14 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { platformCall } from "./lib/platform-rpc.js";
-import { Router } from "./lib/router.js";
+import { router } from "./routes/all.js";
 import { json, error, notFound } from "./lib/http.js";
 import { first } from "./lib/db.js";
 import { resolveBusiness } from "./lib/tenant.js";
 import { requireStaff, isExpired } from "./lib/auth.js";
 
-import { registerPlatform } from "./routes/platform.js";
-import { registerAuth } from "./routes/auth.js";
-import { registerPublic } from "./routes/public.js";
-import { registerAppointments } from "./routes/appointments.js";
-import { registerResources } from "./routes/resources.js";
-import { registerSettings } from "./routes/settings.js";
-import { registerWebhook } from "./routes/webhook.js";
-import { registerSchedule } from "./routes/schedule.js";
-import { registerFlujo } from "./routes/flujo.js";
-import { registerManage } from "./routes/manage.js";
-import { registerFiles } from "./routes/files.js";
-import { registerTreatments } from "./routes/treatments.js";
-import { registerCard } from "./routes/card.js";
-import { registerTeam } from "./routes/team.js";
+import { shellFetch, sesionDe } from "./shell/index.js";
 import { sendDueReminders } from "./lib/reminders.js";
 import { releaseExpiredPending } from "./lib/confirm.js";
-
-const router = new Router();
-registerPlatform(router); // primero: /api/platform/... no debe caer en una ruta /api/:slug/...
-registerAuth(router);
-registerPublic(router);
-registerAppointments(router);
-registerResources(router);
-registerSettings(router);
-registerWebhook(router);
-registerSchedule(router);
-registerFlujo(router);
-registerFiles(router);
-registerManage(router);
-registerTreatments(router);
-registerCard(router);
-registerTeam(router);
 
 // Sirve un archivo estático concreto a través del binding de assets (para las rutas bonitas
 // /:slug y /:slug/admin, que no existen como archivo real).
@@ -48,8 +19,12 @@ function serveAsset(env, request, file) {
 }
 
 const worker = {
-  async fetch(request, env) {
+  async fetch(request, env, execCtx) {
     const url = new URL(request.url);
+
+    // Capa común de las apps Diwilo (módulos centrales, /api/me, MCP, páginas /staff/*)
+    const comun = await shellFetch(request, env, execCtx);
+    if (comun) return comun;
 
     if (!url.pathname.startsWith("/api/")) {
       const parts = url.pathname.split("/").filter(Boolean);
@@ -73,7 +48,8 @@ const worker = {
         if (alias) return Response.redirect(`${url.origin}/${[alias.slug, ...parts.slice(1)].join("/")}${url.search}`, 301);
 
         if (parts.length === 1) return serveAsset(env, request, "/");
-        if (parts.length === 2 && parts[1] === "admin") return serveAsset(env, request, "/admin");
+        // Panel: con sesión del negocio, el panel común (menú + marco); sin sesión (o con link de invitación), el ingreso de siempre.
+        if (parts.length === 2 && parts[1] === "admin") return (await sesionDe(request, env, parts[0])) ? serveAsset(env, request, "/staff/panel") : serveAsset(env, request, "/admin");
         if (parts.length === 2 && parts[1] === "mis-citas") return serveAsset(env, request, "/mis-citas");
         if (parts.length === 2 && parts[1] === "tarjeta") return serveAsset(env, request, "/tarjeta");
       }

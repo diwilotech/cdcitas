@@ -243,3 +243,12 @@ h1,h2,h3,.display-font{ font-family:'Plus Jakarta Sans',system-ui,sans-serif; le
 .donut-wrap .center-label{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:.25rem; }
 .bar-fill{ width:100%; border-radius:6px 6px 0 0; background:var(--primary); }
+
+/* Panel común: Citas se carga en un marco del shell; el shell ya trae la barra superior y el menú lateral. */
+body.cdc-embed header.topbar{ display:none; }
+body.cdc-embed .bottom-nav{ position:sticky; top:0; bottom:auto; border-top:0; border-bottom:1px solid var(--line); z-index:25; }
+body.cdc-embed .bottom-nav .d-flex{ overflow-x:auto; }
+body.cdc-embed{ padding-bottom:1rem; }
+body.cdc-embed .tab-sticky-header{ top:48px; }
+body.cdc-embed.cdc-solo .bottom-nav{ display:none; }
+body.cdc-embed.cdc-solo .tab-sticky-header{ top:0; }

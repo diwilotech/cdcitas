@@ -1,0 +1,161 @@
+{
+  "app": "cdcitas",
+  "nombre": "CD Citas",
+  "tema": "turquesa",
+  "centrales": [
+    "finanzas",
+    "marketing",
+    "nomina",
+    "whatsapp",
+    "marca",
+    "ai",
+    "dashboard"
+  ],
+  "modulos": [
+    {
+      "id": "citas",
+      "nombre": "Agenda",
+      "icono": "bi-calendar2-check",
+      "menu": {
+        "ruta": "/staff/citas.html",
+        "orden": 10
+      },
+      "permisos": {
+        "ver": "staff",
+        "configurar": "admin"
+      },
+      "widgets": [],
+      "depende_de": [],
+      "tipo": "propio",
+      "tablas": [
+        "appointments",
+        "spaces"
+      ],
+      "mcp": {
+        "guia": "Citas: la agenda del negocio (día y mes), los clientes con su historial y paquetes de sesiones, los especialistas y sus horarios, los servicios, los espacios y la tarjeta digital. Las citas se agendan, se mueven, se reagendan, se cancelan y se marcan como completadas; los avisos salen por WhatsApp. La IA consulta la agenda y crea o completa citas; cancelar o reagendar avisa al cliente y pide confirmación.",
+        "ejemplos": [
+          "Pídele: «¿Qué citas tengo mañana?»",
+          "Pídele: «¿Cuánto facturé esta semana y qué especialista atendió más?»"
+        ],
+        "flujos": []
+      }
+    },
+    {
+      "id": "clientes",
+      "nombre": "Clientes",
+      "icono": "bi-person-lines-fill",
+      "menu": {
+        "ruta": "/staff/clientes.html",
+        "orden": 20
+      },
+      "permisos": {
+        "ver": "staff",
+        "configurar": "admin"
+      },
+      "widgets": [],
+      "depende_de": [],
+      "tipo": "propio",
+      "tablas": [
+        "clients"
+      ],
+      "mcp": {
+        "guia": "Clientes: la lista con su historial de citas, paquetes de sesiones y notas.",
+        "ejemplos": [],
+        "flujos": []
+      }
+    },
+    {
+      "id": "servicios",
+      "nombre": "Servicios",
+      "icono": "bi-scissors",
+      "menu": {
+        "ruta": "/staff/servicios.html",
+        "orden": 30
+      },
+      "permisos": {
+        "ver": "staff",
+        "configurar": "admin"
+      },
+      "widgets": [],
+      "depende_de": [],
+      "tipo": "propio",
+      "tablas": [
+        "services",
+        "specialists",
+        "treatments",
+        "promotions"
+      ],
+      "mcp": {
+        "guia": "Servicios: lo que ofreces, los especialistas que lo hacen con sus horarios, los tratamientos por sesiones y las promociones.",
+        "ejemplos": [],
+        "flujos": []
+      }
+    },
+    {
+      "id": "tarjeta",
+      "nombre": "Tarjeta digital",
+      "icono": "bi-person-vcard",
+      "menu": {
+        "ruta": "/staff/tarjeta.html",
+        "orden": 40
+      },
+      "permisos": {
+        "ver": "staff",
+        "configurar": "admin"
+      },
+      "widgets": [],
+      "depende_de": [],
+      "tipo": "propio",
+      "tablas": [],
+      "mcp": {
+        "guia": "Tarjeta digital: la página pública del negocio con sus enlaces, galería y reservas.",
+        "ejemplos": [],
+        "flujos": []
+      }
+    },
+    {
+      "id": "flujo",
+      "nombre": "Flujo",
+      "icono": "bi-graph-up-arrow",
+      "menu": {
+        "ruta": "/staff/flujo.html",
+        "orden": 50
+      },
+      "permisos": {
+        "ver": "staff",
+        "configurar": "admin"
+      },
+      "widgets": [],
+      "depende_de": [],
+      "tipo": "propio",
+      "tablas": [],
+      "mcp": {
+        "guia": "Flujo: ingresos, inasistencia, embudo de citas y rendimiento por especialista.",
+        "ejemplos": [],
+        "flujos": []
+      }
+    },
+    {
+      "id": "ajustes",
+      "nombre": "Ajustes",
+      "icono": "bi-gear",
+      "menu": {
+        "ruta": "/staff/ajustes.html",
+        "orden": 99
+      },
+      "permisos": {
+        "ver": "staff",
+        "configurar": "admin"
+      },
+      "widgets": [],
+      "depende_de": [],
+      "tipo": "propio",
+      "tablas": [],
+      "mcp": {
+        "guia": "Ajustes del negocio: zona horaria, WhatsApp, confirmaciones y plantillas de mensajes.",
+        "ejemplos": [],
+        "flujos": []
+      }
+    }
+  ]
+}
