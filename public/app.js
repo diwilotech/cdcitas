@@ -4,7 +4,7 @@
 // quedaran declarados sueltos acá, el navegador tira "Identifier ya declarado" y el script entero
 // de esa página deja de correr (así fallaban login y datos, en silencio, en todas las páginas).
 (function () {
-  // El negocio vive en /:slug (reserva) o /:slug/admin (panel) — siempre el primer segmento.
+  // El negocio vive en /:slug (panel) y /:slug/reservar (reserva) — siempre el primer segmento.
   function tenantSlug() {
     // Dentro del panel común (/staff/citas) el negocio ya no va en la URL: el servidor lo inyecta.
     const meta = document.querySelector('meta[name="cdc-slug"]');

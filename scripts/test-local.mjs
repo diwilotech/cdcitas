@@ -18,13 +18,19 @@ try {
   check('/api/me trae rol, tema y módulos', me.data.role === 'owner' && me.data.settings?.tema && me.data.modules?.some((m) => m.id === 'citas'), JSON.stringify(me.data).slice(0, 250));
   check('Los módulos centrales base aparecen siempre', ['dashboard', 'marca', 'ai'].every((id) => me.data.modules.some((m) => m.id === id)));
   check('/api/me sin sesión da 401', (await client()('/api/me')).status === 401);
-  const panel = await app(`/${slug}/admin`);
-  check('/<slug>/admin con sesión sirve el panel común', panel.status === 200 && panel.data.text?.includes('id="dw-frame"'), String(panel.status));
+  const panel = await app(`/${slug}`);
+  check('/<slug> con sesión sirve el panel común (como en Academia)', panel.status === 200 && panel.data.text?.includes('id="dw-frame"'), String(panel.status));
+  const viejo = await app(`/${slug}/admin`, { redirect: 'manual' });
+  check('/<slug>/admin con sesión lleva al panel en /<slug>', viejo.status === 302 && viejo.headers.get('location') === `/${slug}`, `${viejo.status} ${viejo.headers.get('location')}`);
+  const cliente = await client()(`/${slug}?service=7`, { redirect: 'manual' });
+  check('/<slug> sin sesión (link de reserva de antes) lleva a /<slug>/reservar conservando lo que traía', cliente.status === 302 && cliente.headers.get('location') === `/${slug}/reservar?service=7`, `${cliente.status} ${cliente.headers.get('location')}`);
+  const reserva = await client()(`/${slug}/reservar`);
+  check('/<slug>/reservar sirve la reserva del cliente', reserva.status === 200 && reserva.data.text?.includes('Reservar cita') && !reserva.data.text.includes('id="dw-frame"'), String(reserva.status));
   const login = await client()(`/${slug}/admin`);
   check('/<slug>/admin sin sesión sirve el ingreso de siempre', login.status === 200 && !login.data.text?.includes('id="dw-frame"') && login.data.text?.includes('loginView'));
   check('/staff/ sin sesión redirige al ingreso', (await client()('/staff/')).status === 302);
   const doc = await app('/staff/citas.html', { headers: { 'sec-fetch-dest': 'document' } });
-  check('Una página abierta directo lleva al panel con ?go=', doc.status === 302 && doc.headers.get('location')?.includes(`/${slug}/admin?go=`), doc.headers.get('location'));
+  check('Una página abierta directo lleva al panel con ?go=', doc.status === 302 && doc.headers.get('location')?.includes(`/${slug}?go=`), doc.headers.get('location'));
   const citas = await app('/staff/citas', { headers: { 'sec-fetch-dest': 'iframe' } });
   check('/staff/citas trae el panel de Citas con el negocio inyectado', citas.status === 200 && citas.data.text?.includes(`name="cdc-slug" content="${slug}"`) && citas.data.text.includes('CDC_EMBED') && citas.data.text.includes('view-agenda'), String(citas.status));
   for (const pg of ['tarjeta', 'flujo', 'ajustes']) { const r = await app(`/staff/${pg}`, { headers: { 'sec-fetch-dest': 'iframe' } }); check(`/staff/${pg} abre su sección del panel`, r.status === 200 && r.data.text?.includes(`CDC_START=${JSON.stringify(pg)}`), String(r.status)); }

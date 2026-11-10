@@ -36,7 +36,7 @@ const worker = {
       // crean en Diwilo Web.)
       if (parts.length === 1 && (parts[0] === "admin" || parts[0] === "login")) return Response.redirect(new URL("/", url), 302);
 
-      // /:slug -> reserva del cliente, /:slug/admin -> panel de personal de ese negocio. Un slug
+      // /:slug -> panel del negocio (con sesión), /:slug/reservar -> reserva del cliente. Un slug
       // se distingue de un archivo real (styles.css, app.js, favicon.ico...) probando primero
       // contra los assets tal cual: si existe de verdad, se sirve ese archivo sin más vueltas.
       if (parts.length >= 1 && parts.length <= 2 && !parts[0].includes(".")) {
@@ -47,9 +47,17 @@ const worker = {
         const alias = await first(env, `SELECT b.slug FROM business_slug_aliases a JOIN businesses b ON b.id = a.business_id AND b.archived_at IS NULL WHERE a.slug=?`, parts[0]);
         if (alias) return Response.redirect(`${url.origin}/${[alias.slug, ...parts.slice(1)].join("/")}${url.search}`, 301);
 
-        if (parts.length === 1) return serveAsset(env, request, "/");
-        // Panel: con sesión del negocio, el panel común (menú + marco); sin sesión (o con link de invitación), el ingreso de siempre.
-        if (parts.length === 2 && parts[1] === "admin") return (await sesionDe(request, env, parts[0])) ? serveAsset(env, request, "/staff/panel") : serveAsset(env, request, "/admin");
+        // Como en CD Academia: /<slug> es el panel del negocio (con sesión). Sin sesión es un cliente con un link de reserva
+        // de los de antes: va a /<slug>/reservar conservando lo que traía (?service=, ?src=…). El equipo ingresa en la raíz «/».
+        if (parts.length === 1) {
+          if (await sesionDe(request, env, parts[0])) return serveAsset(env, request, "/staff/panel");
+          return new Response(null, { status: 302, headers: { location: `/${parts[0]}/reservar${url.search}`, "cache-control": "no-store" } });
+        }
+        // La reserva del cliente (la página pública de siempre).
+        if (parts.length === 2 && parts[1] === "reservar") return serveAsset(env, request, "/");
+        // /<slug>/admin (dirección anterior del panel y la de los links de invitación): con sesión lleva al panel en /<slug>;
+        // sin sesión (o con #invite=…) sirve el ingreso del negocio.
+        if (parts.length === 2 && parts[1] === "admin") return (await sesionDe(request, env, parts[0])) ? new Response(null, { status: 302, headers: { location: `/${parts[0]}${url.search}`, "cache-control": "no-store" } }) : serveAsset(env, request, "/admin");
         if (parts.length === 2 && parts[1] === "mis-citas") return serveAsset(env, request, "/mis-citas");
         if (parts.length === 2 && parts[1] === "tarjeta") return serveAsset(env, request, "/tarjeta");
       }

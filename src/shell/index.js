@@ -52,7 +52,7 @@ async function handleCentral(req, env, ctx, url) {
 
 // Módulos propios de Citas con su página (Clientes y Servicios son páginas comunes y salen de los assets).
 const PAGINAS_CITAS = ['citas', 'tarjeta', 'flujo', 'ajustes', 'equipo'];
-const aPanel = (url, slug, go) => Response.redirect(`${url.origin}/${slug}/admin${go ? `?go=${encodeURIComponent(go)}` : ''}`, 302);
+const aPanel = (url, slug, go) => Response.redirect(`${url.origin}/${slug}${go ? `?go=${encodeURIComponent(go)}` : ''}`, 302);
 
 // Página de Citas dentro del panel: la página del módulo (public/staff/<módulo>.html) con el negocio inyectado.
 async function embedCitas(env, req, slug, start) {
@@ -94,7 +94,7 @@ export async function shellFetch(req, env, ctx) {
   }
 }
 
-// ¿Esta sesión es del negocio de la dirección? (para servir el panel en /<slug>/admin)
+// ¿Esta sesión es del negocio de la dirección? (para servir el panel en /<slug>)
 export async function sesionDe(req, env, slug) {
   const s = await loadSession(req, env);
   return s && s.business_slug === slug ? s : null;
